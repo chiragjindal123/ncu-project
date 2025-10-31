@@ -5,6 +5,7 @@ import psycopg2
 import json
 import re
 from rag_utils import get_context, get_embedding, save_message, get_connection, chunk_text
+from knowledge_extractor import extract_structured_knowledge, save_to_db
 import os
 from werkzeug.utils import secure_filename
 from PyPDF2 import PdfReader
@@ -30,6 +31,7 @@ def chat():
     user_input = data.get("message")
     model = data.get("model")  # "gemini" or "ollama"
     use_rag = data.get("use_rag")
+    use_structure = data.get("use_structure", False)  # New parameter
     
     save_message("user", user_input)
 
@@ -49,6 +51,63 @@ def chat():
 
     rag_context = get_context(user_input) if use_rag else ""
 
+    
+    # Get structured context (UPDATE this section in your chat route)
+    structured_context = ""
+    if use_structure:
+        conn = get_connection()
+        cur = conn.cursor()
+        
+        # Debug: Check what we're searching for
+        print(f"Searching structured knowledge for: '{user_input}'")
+        
+        # Split the user input into individual words for better searching
+        search_words = user_input.lower().split()
+        search_conditions = []
+        search_params = []
+        
+        for word in search_words:
+            if len(word) > 2:  # Only search for words longer than 2 characters
+                search_conditions.extend([
+                    "topic ILIKE %s",
+                    "subtopic ILIKE %s", 
+                    "keywords ILIKE %s",
+                    "definition ILIKE %s"
+                ])
+                search_params.extend([f"%{word}%", f"%{word}%", f"%{word}%", f"%{word}%"])
+        
+        if search_conditions:
+            query = f"""
+                SELECT DISTINCT topic, subtopic, definition, formula, keywords 
+                FROM course_knowledge 
+                WHERE {' OR '.join(search_conditions)}
+                LIMIT 10;
+            """
+            cur.execute(query, search_params)
+        else:
+            # Fallback: get some recent entries if no good search terms
+            cur.execute("SELECT topic, subtopic, definition, formula, keywords FROM course_knowledge LIMIT 5;")
+        
+        rows = cur.fetchall()
+        conn.close()
+
+        print(f"Found {len(rows)} structured knowledge entries")  # Debug
+        
+        # In your structured context section, update this part:
+        if rows:
+            structured_context = "STRUCTURED ACADEMIC KNOWLEDGE:\n\n"
+            for r in rows:
+                if r[0]:  # if topic exists
+                    structured_context += f"**Topic**: {r[0]}\n"
+                    structured_context += f"**Subtopic**: {r[1]}\n" 
+                    structured_context += f"**Definition**: {r[2]}\n"
+                    if r[3]:  # if formula exists
+                        structured_context += f"**Formula**: {r[3]}\n"
+                    structured_context += f"**Keywords**: {r[4]}\n"
+                    structured_context += "---\n\n"
+        
+        print(f"Structured context: {structured_context[:200]}...")  # Debug first 200 chars
+        
     # --- Prompt Engineering ---
     if task == "review":
         task_prompt = f"Review the following material and explain it simply:\n{user_input}"
@@ -66,9 +125,22 @@ def chat():
         )
     else:
         task_prompt = user_input
+        
+    if use_structure and use_rag:
+        system_instruction = "You are an AI Teaching Assistant. Use both the structured academic knowledge and RAG context to provide a comprehensive, well-formatted response with headings, bullet points, and academic structure."
+    elif use_structure:
+        system_instruction = "You are an AI Teaching Assistant. Use the structured academic knowledge to provide an organized, pedagogical response with clear definitions, topics, and academic formatting."
+    elif use_rag:
+        system_instruction = "You are an AI Teaching Assistant. Use the provided context to give a detailed, well-formatted response with bullet points, bold headings, and clear organization."
+    else:
+        system_instruction = "You are an AI Teaching Assistant. Provide a helpful response based on your knowledge."
 
-    final_prompt = f"Context:\n{rag_context}\n\nTask:\n{task_prompt}"
 
+    # final_prompt = f"Context:\n{rag_context}\n\nTask:\n{task_prompt}"
+    
+    # Combined prompt with structured knowledge
+    # final_prompt = f"Structured Knowledge:\n{structured_context}\n\nRAG Context:\n{rag_context}\n\nTask:\n{task_prompt}"
+    final_prompt = f"{system_instruction}\n\nStructured Knowledge:\n{structured_context}\n\nRAG Context:\n{rag_context}\n\nTask:\n{task_prompt}"
 
     if model == "gemini":
         headers = {
@@ -149,6 +221,15 @@ def upload():
 
     if not content.strip():
         return jsonify({"message": "No extractable text found in the file."}), 400
+    
+    # Extract structured knowledge
+    structured = extract_structured_knowledge(content)
+    if structured:
+        save_to_db(structured)
+        extraction_msg = "with structured knowledge extraction"
+    else:
+        extraction_msg = "without structured knowledge extraction (API limit reached)"
+
 
     chunks = chunk_text(content, chunk_size=1000, overlap=200)
     conn = get_connection()
@@ -161,7 +242,7 @@ def upload():
         )
     conn.commit()
     conn.close()
-    return jsonify({"message": f"File uploaded and embedded in {len(chunks)} chunks."})
+    return jsonify({"message": f"File uploaded and embedded in {len(chunks)} chunks {extraction_msg}."})
 
 @app.route("/score_quiz", methods=["POST"])
 def score_quiz():
