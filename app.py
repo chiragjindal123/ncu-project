@@ -222,13 +222,14 @@ def upload():
     if not content.strip():
         return jsonify({"message": "No extractable text found in the file."}), 400
     
-    # Extract structured knowledge
-    structured = extract_structured_knowledge(content)
-    if structured:
-        save_to_db(structured)
-        extraction_msg = "with structured knowledge extraction"
-    else:
-        extraction_msg = "without structured knowledge extraction (API limit reached)"
+     # Semantic chunking for structured extraction
+    semantic_structured_chunks = semantic_chunks(content, min_length=800)
+    extracted_structures = []
+    for chunk in semantic_structured_chunks:
+        structured = extract_structured_knowledge(chunk)
+        if structured:
+            save_to_db(structured)
+            extracted_structures.append(structured)
 
 
     chunks = chunk_text(content, chunk_size=1000, overlap=200)
@@ -242,7 +243,10 @@ def upload():
         )
     conn.commit()
     conn.close()
-    return jsonify({"message": f"File uploaded and embedded in {len(chunks)} chunks {extraction_msg}."})
+    return jsonify({
+        "message": f"File uploaded and embedded in {len(chunks)} RAG chunks and {len(extracted_structures)} structured chunks.",
+        "structured_knowledge": extracted_structures  # Send extracted knowledge to frontend
+    })
 
 @app.route("/score_quiz", methods=["POST"])
 def score_quiz():
@@ -284,6 +288,28 @@ def score_quiz():
         "total": len(quiz),
         "answers": [q.get("answer") for q in quiz]
     })
+
+
+
+
+def semantic_chunks(text, min_length=500):
+    # Split by double newlines (paragraphs/sections)
+    raw_chunks = [chunk.strip() for chunk in text.split('\n\n') if chunk.strip()]
+    # Merge small chunks
+    chunks = []
+    buffer = ""
+    for chunk in raw_chunks:
+        if len(buffer) + len(chunk) < min_length:
+            buffer += "\n\n" + chunk
+        else:
+            if buffer:
+                chunks.append(buffer.strip())
+            buffer = chunk
+    if buffer:
+        chunks.append(buffer.strip())
+    return chunks
+
+
 
 if __name__ == "__main__":
     app.run(debug=True)
