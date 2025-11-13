@@ -11,6 +11,10 @@ from werkzeug.utils import secure_filename
 from PyPDF2 import PdfReader
 import docx
 from dotenv import load_dotenv
+from sentence_transformers import SentenceTransformer
+import numpy as np
+
+model = SentenceTransformer("all-mpnet-base-v2")
 
 load_dotenv()
 app = Flask(__name__)
@@ -223,7 +227,7 @@ def upload():
         return jsonify({"message": "No extractable text found in the file."}), 400
     
      # Semantic chunking for structured extraction
-    semantic_structured_chunks = semantic_chunks(content, min_length=800)
+    semantic_structured_chunks = semantic_chunks(content, similarity_threshold=0.65, max_length=900)
     extracted_structures = []
     for chunk in semantic_structured_chunks:
         structured = extract_structured_knowledge(chunk)
@@ -292,21 +296,35 @@ def score_quiz():
 
 
 
-def semantic_chunks(text, min_length=500):
-    # Split by double newlines (paragraphs/sections)
-    raw_chunks = [chunk.strip() for chunk in text.split('\n\n') if chunk.strip()]
-    # Merge small chunks
+
+
+def semantic_chunks(text, similarity_threshold=0.70, max_length=1200):
+    paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
+    if len(paragraphs) <= 1:
+        return [text]
+
+    # Step 1: embed all paragraphs
+    embeddings = model.encode(paragraphs, convert_to_numpy=True)
+
     chunks = []
-    buffer = ""
-    for chunk in raw_chunks:
-        if len(buffer) + len(chunk) < min_length:
-            buffer += "\n\n" + chunk
+    current_chunk = paragraphs[0]
+    prev_vec = embeddings[0]
+
+    for i in range(1, len(paragraphs)):
+        sim = np.dot(prev_vec, embeddings[i]) / (
+            np.linalg.norm(prev_vec) * np.linalg.norm(embeddings[i])
+        )
+
+        # If meaning changes → new chunk
+        if sim < similarity_threshold or len(current_chunk) > max_length:
+            chunks.append(current_chunk.strip())
+            current_chunk = paragraphs[i]
         else:
-            if buffer:
-                chunks.append(buffer.strip())
-            buffer = chunk
-    if buffer:
-        chunks.append(buffer.strip())
+            current_chunk += "\n\n" + paragraphs[i]
+
+        prev_vec = embeddings[i]
+
+    chunks.append(current_chunk.strip())
     return chunks
 
 
