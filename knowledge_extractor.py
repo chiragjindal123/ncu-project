@@ -8,21 +8,41 @@ load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_URL = os.getenv("GEMINI_URL")
 
+# EXTRACTION_PROMPT = """
+# You are an AI specialized in converting lecture slides or documents 
+# into structured academic knowledge.
+
+# Extract the following fields from the text:
+
+# - Topic
+# - Subtopics (list)
+# - Definitions (list)
+# - Formulas (list)
+# - Terminology / Keywords (list)
+# - Learning Outcomes (list)
+# - Diagram Descriptions (list)
+
+# Return ONLY valid JSON with these keys.
+# """
+
+
 EXTRACTION_PROMPT = """
-You are an AI specialized in converting lecture slides or documents 
-into structured academic knowledge.
+You are an AI specialized in converting academic documents into structured knowledge graphs.
 
 Extract the following fields from the text:
 
-- Topic
-- Subtopics (list)
-- Definitions (list)
-- Formulas (list)
-- Terminology / Keywords (list)
-- Learning Outcomes (list)
-- Diagram Descriptions (list)
+- Topic (main subject - single string)
+- Subtopics (list of related subtopics)
+- Definitions (list in format "Term: Definition")
+- Formulas (list of mathematical expressions or equations)
+- Terminology / Keywords (list of important terms)
+- Learning Outcomes (list of what students should learn)
+- Diagram Descriptions (list of visual elements described)
+- Prerequisites (list of concepts needed before this topic)
+- Applications (list of real-world uses)
 
-Return ONLY valid JSON with these keys.
+Return ONLY valid JSON with these exact keys. Make definitions clear and concise.
+Ensure Topic is a single, clear topic name.
 """
 
 def extract_structured_knowledge(text):

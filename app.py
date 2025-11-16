@@ -13,6 +13,7 @@ import docx
 from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
 import numpy as np
+from knowledge_graph import KnowledgeGraph
 
 model = SentenceTransformer("all-mpnet-base-v2")
 
@@ -57,61 +58,74 @@ def chat():
 
     
     # Get structured context (UPDATE this section in your chat route)
+    
+    # structured_context = ""
+    # if use_structure:
+    #     conn = get_connection()
+    #     cur = conn.cursor()
+        
+    #     # Debug: Check what we're searching for
+    #     print(f"Searching structured knowledge for: '{user_input}'")
+        
+    #     # Split the user input into individual words for better searching
+    #     search_words = user_input.lower().split()
+    #     search_conditions = []
+    #     search_params = []
+        
+    #     for word in search_words:
+    #         if len(word) > 2:  # Only search for words longer than 2 characters
+    #             search_conditions.extend([
+    #                 "topic ILIKE %s",
+    #                 "subtopic ILIKE %s", 
+    #                 "keywords ILIKE %s",
+    #                 "definition ILIKE %s"
+    #             ])
+    #             search_params.extend([f"%{word}%", f"%{word}%", f"%{word}%", f"%{word}%"])
+        
+    #     if search_conditions:
+    #         query = f"""
+    #             SELECT DISTINCT topic, subtopic, definition, formula, keywords 
+    #             FROM course_knowledge 
+    #             WHERE {' OR '.join(search_conditions)}
+    #             LIMIT 10;
+    #         """
+    #         cur.execute(query, search_params)
+    #     else:
+    #         # Fallback: get some recent entries if no good search terms
+    #         cur.execute("SELECT topic, subtopic, definition, formula, keywords FROM course_knowledge LIMIT 5;")
+        
+    #     rows = cur.fetchall()
+    #     conn.close()
+
+    #     print(f"Found {len(rows)} structured knowledge entries")  # Debug
+        
+    #     # In your structured context section, update this part:
+    #     if rows:
+    #         structured_context = "STRUCTURED ACADEMIC KNOWLEDGE:\n\n"
+    #         for r in rows:
+    #             if r[0]:  # if topic exists
+    #                 structured_context += f"**Topic**: {r[0]}\n"
+    #                 structured_context += f"**Subtopic**: {r[1]}\n" 
+    #                 structured_context += f"**Definition**: {r[2]}\n"
+    #                 if r[3]:  # if formula exists
+    #                     structured_context += f"**Formula**: {r[3]}\n"
+    #                 structured_context += f"**Keywords**: {r[4]}\n"
+                    # structured_context += "---\n\n"
+        
+    #    print(f"Structured context: {structured_context[:200]}...")  # Debug first 200 chars
+    
+    # Get Knowledge Graph context
     structured_context = ""
     if use_structure:
-        conn = get_connection()
-        cur = conn.cursor()
-        
-        # Debug: Check what we're searching for
-        print(f"Searching structured knowledge for: '{user_input}'")
-        
-        # Split the user input into individual words for better searching
-        search_words = user_input.lower().split()
-        search_conditions = []
-        search_params = []
-        
-        for word in search_words:
-            if len(word) > 2:  # Only search for words longer than 2 characters
-                search_conditions.extend([
-                    "topic ILIKE %s",
-                    "subtopic ILIKE %s", 
-                    "keywords ILIKE %s",
-                    "definition ILIKE %s"
-                ])
-                search_params.extend([f"%{word}%", f"%{word}%", f"%{word}%", f"%{word}%"])
-        
-        if search_conditions:
-            query = f"""
-                SELECT DISTINCT topic, subtopic, definition, formula, keywords 
-                FROM course_knowledge 
-                WHERE {' OR '.join(search_conditions)}
-                LIMIT 10;
-            """
-            cur.execute(query, search_params)
-        else:
-            # Fallback: get some recent entries if no good search terms
-            cur.execute("SELECT topic, subtopic, definition, formula, keywords FROM course_knowledge LIMIT 5;")
-        
-        rows = cur.fetchall()
-        conn.close()
+        try:
+            kg = KnowledgeGraph()
+            search_terms = user_input.lower().split()
+            structured_context = kg.get_concept_context(search_terms)
+            kg.close()
+            print(f"Graph context found: {len(structured_context)} characters")
+        except Exception as e:
+            print(f"Knowledge graph query failed: {e}")
 
-        print(f"Found {len(rows)} structured knowledge entries")  # Debug
-        
-        # In your structured context section, update this part:
-        if rows:
-            structured_context = "STRUCTURED ACADEMIC KNOWLEDGE:\n\n"
-            for r in rows:
-                if r[0]:  # if topic exists
-                    structured_context += f"**Topic**: {r[0]}\n"
-                    structured_context += f"**Subtopic**: {r[1]}\n" 
-                    structured_context += f"**Definition**: {r[2]}\n"
-                    if r[3]:  # if formula exists
-                        structured_context += f"**Formula**: {r[3]}\n"
-                    structured_context += f"**Keywords**: {r[4]}\n"
-                    structured_context += "---\n\n"
-        
-        print(f"Structured context: {structured_context[:200]}...")  # Debug first 200 chars
-        
     # --- Prompt Engineering ---
     if task == "review":
         task_prompt = f"Review the following material and explain it simply:\n{user_input}"
@@ -130,21 +144,47 @@ def chat():
     else:
         task_prompt = user_input
         
-    if use_structure and use_rag:
-        system_instruction = "You are an AI Teaching Assistant. Use both the structured academic knowledge and RAG context to provide a comprehensive, well-formatted response with headings, bullet points, and academic structure."
-    elif use_structure:
-        system_instruction = "You are an AI Teaching Assistant. Use the structured academic knowledge to provide an organized, pedagogical response with clear definitions, topics, and academic formatting."
-    elif use_rag:
-        system_instruction = "You are an AI Teaching Assistant. Use the provided context to give a detailed, well-formatted response with bullet points, bold headings, and clear organization."
-    else:
-        system_instruction = "You are an AI Teaching Assistant. Provide a helpful response based on your knowledge."
+    # if use_structure and use_rag:
+    #     system_instruction = "You are an AI Teaching Assistant. Use both the structured academic knowledge and RAG context to provide a comprehensive, well-formatted response with headings, bullet points, and academic structure."
+    # elif use_structure:
+    #     system_instruction = "You are an AI Teaching Assistant. Use the structured academic knowledge to provide an organized, pedagogical response with clear definitions, topics, and academic formatting."
+    # elif use_rag:
+    #     system_instruction = "You are an AI Teaching Assistant. Use the provided context to give a detailed, well-formatted response with bullet points, bold headings, and clear organization."
+    # else:
+    #     system_instruction = "You are an AI Teaching Assistant. Provide a helpful response based on your knowledge."
 
 
-    # final_prompt = f"Context:\n{rag_context}\n\nTask:\n{task_prompt}"
+    # # final_prompt = f"Context:\n{rag_context}\n\nTask:\n{task_prompt}"
     
-    # Combined prompt with structured knowledge
-    # final_prompt = f"Structured Knowledge:\n{structured_context}\n\nRAG Context:\n{rag_context}\n\nTask:\n{task_prompt}"
-    final_prompt = f"{system_instruction}\n\nStructured Knowledge:\n{structured_context}\n\nRAG Context:\n{rag_context}\n\nTask:\n{task_prompt}"
+    # # Combined prompt with structured knowledge
+    # # final_prompt = f"Structured Knowledge:\n{structured_context}\n\nRAG Context:\n{rag_context}\n\nTask:\n{task_prompt}"
+    # final_prompt = f"{system_instruction}\n\nStructured Knowledge:\n{structured_context}\n\nRAG Context:\n{rag_context}\n\nTask:\n{task_prompt}"
+
+    # Enhanced system instruction for graph-aware responses
+    system_instruction = ""
+    if use_structure and structured_context:
+        system_instruction = """You are an AI Teaching Assistant with access to a knowledge graph. 
+        Use the graph relationships to provide comprehensive explanations that show how concepts connect. 
+        Structure your response with clear headings and explain concept relationships."""
+
+    # Combine contexts
+    final_prompt = f"""
+    {system_instruction}
+    
+    Knowledge Graph Context:
+    {structured_context}
+    
+    RAG Context:
+    {rag_context}
+    
+    Task: {task_prompt}
+    """
+    
+    # Limit prompt size
+    MAX_PROMPT_CHARS = 4000
+    if len(final_prompt) > MAX_PROMPT_CHARS:
+        final_prompt = final_prompt[:MAX_PROMPT_CHARS] + "\n...[truncated]..."
+
 
     if model == "gemini":
         headers = {
@@ -226,14 +266,33 @@ def upload():
     if not content.strip():
         return jsonify({"message": "No extractable text found in the file."}), 400
     
-     # Semantic chunking for structured extraction
-    semantic_structured_chunks = semantic_chunks(content, similarity_threshold=0.65, max_length=900)
+    # Initialize knowledge graph
+    kg = KnowledgeGraph()
     extracted_structures = []
-    for chunk in semantic_structured_chunks:
-        structured = extract_structured_knowledge(chunk)
+    
+    try:
+        # Extract structured knowledge
+        structured = extract_structured_knowledge(content)
         if structured:
+            # Save to PostgreSQL (existing functionality)
             save_to_db(structured)
+            # Save to Neo4j knowledge graph
+            kg.create_concept_graph(structured)
             extracted_structures.append(structured)
+            print(f"Created knowledge graph with topic: {structured.get('Topic', 'Unknown')}")
+    except Exception as e:
+        print(f"Knowledge graph creation failed: {e}")
+    finally:
+        kg.close()
+    
+     # Semantic chunking for structured extraction
+    # semantic_structured_chunks = semantic_chunks(content, similarity_threshold=0.65, max_length=900)
+    # extracted_structures = []
+    # for chunk in semantic_structured_chunks:
+    #     structured = extract_structured_knowledge(chunk)
+    #     if structured:
+    #         save_to_db(structured)
+    #         extracted_structures.append(structured)
 
 
     chunks = chunk_text(content, chunk_size=1000, overlap=200)
@@ -295,8 +354,70 @@ def score_quiz():
 
 
 
+@app.route("/learning_path", methods=["POST"])
+def learning_path():
+    data = request.json
+    start = data.get("start_concept")
+    end = data.get("end_concept")
+    
+    try:
+        kg = KnowledgeGraph()
+        path = kg.get_learning_path(start, end)
+        kg.close()
+        return jsonify({"path": path})
+    except Exception as e:
+        return jsonify({"error": f"Failed to find learning path: {str(e)}"})
+    
+@app.route("/graph_stats", methods=["GET"])
+def graph_stats():
+    try:
+        kg = KnowledgeGraph()
+        stats = kg.get_graph_stats()
+        kg.close()
+        return jsonify({"stats": stats})
+    except Exception as e:
+        return jsonify({"error": f"Failed to get graph stats: {str(e)}"})
 
+@app.route("/related_topics", methods=["POST"])
+def related_topics():
+    data = request.json
+    topic = data.get("topic")
+    
+    try:
+        kg = KnowledgeGraph()
+        related = kg.find_related_topics(topic)
+        kg.close()
+        return jsonify({"related_topics": related})
+    except Exception as e:
+        return jsonify({"error": f"Failed to find related topics: {str(e)}"})
 
+@app.route("/test_neo4j", methods=["GET"])
+def test_neo4j():
+    try:
+        kg = KnowledgeGraph()
+        
+        # Test basic functionality
+        test_data = {
+            "Topic": "Test Topic",
+            "Subtopics": ["Test Subtopic"],
+            "Definitions": ["Test Term: Test Definition"],
+            "Terminology / Keywords": ["test", "keyword"]
+        }
+        
+        kg.create_concept_graph(test_data)
+        context = kg.get_concept_context(["test"])
+        stats = kg.get_graph_stats()
+        
+        kg.close()
+        
+        return jsonify({
+            "status": "success",
+            "context_length": len(context),
+            "stats": stats
+        })
+        
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)})
 
 def semantic_chunks(text, similarity_threshold=0.70, max_length=1200):
     paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
