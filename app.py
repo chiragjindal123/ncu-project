@@ -5,7 +5,7 @@ import psycopg2
 import json
 import re
 from rag_utils import get_context, get_embedding, save_message, get_connection, chunk_text
-from knowledge_extractor import extract_structured_knowledge, save_to_db
+from knowledge_extractor import extract_structured_knowledge
 import os
 from werkzeug.utils import secure_filename
 from PyPDF2 import PdfReader
@@ -56,64 +56,6 @@ def chat():
 
     rag_context = get_context(user_input) if use_rag else ""
 
-    
-    # Get structured context (UPDATE this section in your chat route)
-    
-    # structured_context = ""
-    # if use_structure:
-    #     conn = get_connection()
-    #     cur = conn.cursor()
-        
-    #     # Debug: Check what we're searching for
-    #     print(f"Searching structured knowledge for: '{user_input}'")
-        
-    #     # Split the user input into individual words for better searching
-    #     search_words = user_input.lower().split()
-    #     search_conditions = []
-    #     search_params = []
-        
-    #     for word in search_words:
-    #         if len(word) > 2:  # Only search for words longer than 2 characters
-    #             search_conditions.extend([
-    #                 "topic ILIKE %s",
-    #                 "subtopic ILIKE %s", 
-    #                 "keywords ILIKE %s",
-    #                 "definition ILIKE %s"
-    #             ])
-    #             search_params.extend([f"%{word}%", f"%{word}%", f"%{word}%", f"%{word}%"])
-        
-    #     if search_conditions:
-    #         query = f"""
-    #             SELECT DISTINCT topic, subtopic, definition, formula, keywords 
-    #             FROM course_knowledge 
-    #             WHERE {' OR '.join(search_conditions)}
-    #             LIMIT 10;
-    #         """
-    #         cur.execute(query, search_params)
-    #     else:
-    #         # Fallback: get some recent entries if no good search terms
-    #         cur.execute("SELECT topic, subtopic, definition, formula, keywords FROM course_knowledge LIMIT 5;")
-        
-    #     rows = cur.fetchall()
-    #     conn.close()
-
-    #     print(f"Found {len(rows)} structured knowledge entries")  # Debug
-        
-    #     # In your structured context section, update this part:
-    #     if rows:
-    #         structured_context = "STRUCTURED ACADEMIC KNOWLEDGE:\n\n"
-    #         for r in rows:
-    #             if r[0]:  # if topic exists
-    #                 structured_context += f"**Topic**: {r[0]}\n"
-    #                 structured_context += f"**Subtopic**: {r[1]}\n" 
-    #                 structured_context += f"**Definition**: {r[2]}\n"
-    #                 if r[3]:  # if formula exists
-    #                     structured_context += f"**Formula**: {r[3]}\n"
-    #                 structured_context += f"**Keywords**: {r[4]}\n"
-                    # structured_context += "---\n\n"
-        
-    #    print(f"Structured context: {structured_context[:200]}...")  # Debug first 200 chars
-    
     # Get Knowledge Graph context
     structured_context = ""
     if use_structure:
@@ -132,9 +74,9 @@ def chat():
     elif task == "quiz":
         task_prompt = (
             "Generate 5 multiple-choice quiz questions in the following JSON format:\n"
-            '[{"question": "...", "options": ["A", "B", "C", "D"], "answer": "A"}, ...]\n'
+            '[{"question": "...", "options": ["A) Full option text", "B) Full option text", "C) Full option text", "D) Full option text"], "answer": "A) Full option text"}, ...]\n'
             f"Material:\n{user_input}\n"
-            "Do not include explanations. Only output valid JSON."
+            "Make sure the answer field contains the full option text including the letter prefix."
         )
     elif task == "practice":
         task_prompt = (
@@ -144,22 +86,7 @@ def chat():
     else:
         task_prompt = user_input
         
-    # if use_structure and use_rag:
-    #     system_instruction = "You are an AI Teaching Assistant. Use both the structured academic knowledge and RAG context to provide a comprehensive, well-formatted response with headings, bullet points, and academic structure."
-    # elif use_structure:
-    #     system_instruction = "You are an AI Teaching Assistant. Use the structured academic knowledge to provide an organized, pedagogical response with clear definitions, topics, and academic formatting."
-    # elif use_rag:
-    #     system_instruction = "You are an AI Teaching Assistant. Use the provided context to give a detailed, well-formatted response with bullet points, bold headings, and clear organization."
-    # else:
-    #     system_instruction = "You are an AI Teaching Assistant. Provide a helpful response based on your knowledge."
-
-
-    # # final_prompt = f"Context:\n{rag_context}\n\nTask:\n{task_prompt}"
     
-    # # Combined prompt with structured knowledge
-    # # final_prompt = f"Structured Knowledge:\n{structured_context}\n\nRAG Context:\n{rag_context}\n\nTask:\n{task_prompt}"
-    # final_prompt = f"{system_instruction}\n\nStructured Knowledge:\n{structured_context}\n\nRAG Context:\n{rag_context}\n\nTask:\n{task_prompt}"
-
     # Enhanced system instruction for graph-aware responses
     system_instruction = ""
     if use_structure and structured_context:
@@ -271,30 +198,23 @@ def upload():
     extracted_structures = []
     
     try:
-        # Extract structured knowledge
-        structured = extract_structured_knowledge(content)
-        if structured:
-            # Save to PostgreSQL (existing functionality)
-            save_to_db(structured)
-            # Save to Neo4j knowledge graph
-            kg.create_concept_graph(structured)
-            extracted_structures.append(structured)
-            print(f"Created knowledge graph with topic: {structured.get('Topic', 'Unknown')}")
+        # Use semantic chunking for better knowledge extraction
+        semantic_structured_chunks = semantic_chunks(content, similarity_threshold=0.65, max_length=900)
+        
+        for chunk in semantic_structured_chunks:
+            structured = extract_structured_knowledge(chunk)
+            if structured:
+                # Save ONLY to Neo4j knowledge graph
+                kg.create_concept_graph(structured)
+                extracted_structures.append(structured)
+                print(f"Created knowledge graph chunk with topic: {structured.get('Topic', 'Unknown')}")
+                
     except Exception as e:
         print(f"Knowledge graph creation failed: {e}")
     finally:
         kg.close()
-    
-     # Semantic chunking for structured extraction
-    # semantic_structured_chunks = semantic_chunks(content, similarity_threshold=0.65, max_length=900)
-    # extracted_structures = []
-    # for chunk in semantic_structured_chunks:
-    #     structured = extract_structured_knowledge(chunk)
-    #     if structured:
-    #         save_to_db(structured)
-    #         extracted_structures.append(structured)
 
-
+    # Regular RAG chunking (still needed for vector search)
     chunks = chunk_text(content, chunk_size=1000, overlap=200)
     conn = get_connection()
     cur = conn.cursor()
@@ -307,8 +227,8 @@ def upload():
     conn.commit()
     conn.close()
     return jsonify({
-        "message": f"File uploaded and embedded in {len(chunks)} RAG chunks and {len(extracted_structures)} structured chunks.",
-        "structured_knowledge": extracted_structures  # Send extracted knowledge to frontend
+        "message": f"File uploaded: {len(chunks)} RAG chunks, {len(extracted_structures)} Neo4j knowledge concepts.",
+        "structured_knowledge": extracted_structures
     })
 
 @app.route("/score_quiz", methods=["POST"])
@@ -324,27 +244,37 @@ def score_quiz():
             
         correct_answer = q.get("answer")
         
-        # Convert full answers to just their option letter
-        def get_letter(answer):
+        # Simple letter-to-letter comparison
+        def normalize_answer(answer):
             if not answer:
                 return None
-            # If it's just a letter, return it
-            if len(answer) == 1:
-                return answer.upper()
-            # If it starts with a letter and a dot/space/period
-            if len(answer) > 1 and answer[0].isalpha() and answer[1] in '. ':
-                return answer[0].upper()
-            # If it's a full answer, check for exact match or contained text
-            for i, opt in enumerate(q.get("options", [])):
-                if answer.lower().strip() == opt.lower().strip():
-                    return chr(65 + i)  # Convert 0->A, 1->B, etc.
+            
+            # Extract just the letter part
+            answer_str = str(answer).strip().upper()
+            
+            # If it's just a letter (A, B, C, D)
+            if len(answer_str) == 1 and answer_str in ['A', 'B', 'C', 'D']:
+                return answer_str
+            
+            # If it starts with a letter followed by delimiter
+            if len(answer_str) > 1 and answer_str[0] in ['A', 'B', 'C', 'D']:
+                return answer_str[0]
+            
             return None
 
-        user_letter = get_letter(user_answer)
-        correct_letter = get_letter(correct_answer)
+        user_letter = normalize_answer(user_answer)
+        correct_letter = normalize_answer(correct_answer)
+        
+        print(f"Question: {q.get('question', '')[:50]}...")
+        print(f"User answer: '{user_answer}' -> normalized: '{user_letter}'")
+        print(f"Correct answer: '{correct_answer}' -> normalized: '{correct_letter}'")
         
         if user_letter and correct_letter and user_letter == correct_letter:
             score += 1
+            print("✅ CORRECT")
+        else:
+            print("❌ INCORRECT")
+        print("---")
                 
     return jsonify({
         "score": score,

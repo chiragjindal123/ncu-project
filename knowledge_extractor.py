@@ -8,24 +8,6 @@ load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_URL = os.getenv("GEMINI_URL")
 
-# EXTRACTION_PROMPT = """
-# You are an AI specialized in converting lecture slides or documents 
-# into structured academic knowledge.
-
-# Extract the following fields from the text:
-
-# - Topic
-# - Subtopics (list)
-# - Definitions (list)
-# - Formulas (list)
-# - Terminology / Keywords (list)
-# - Learning Outcomes (list)
-# - Diagram Descriptions (list)
-
-# Return ONLY valid JSON with these keys.
-# """
-
-
 EXTRACTION_PROMPT = """
 You are an AI specialized in converting academic documents into structured knowledge graphs.
 
@@ -93,42 +75,3 @@ def extract_structured_knowledge(text):
         print("Unexpected error:", e)
         return None
 
-
-def save_to_db(structure):
-    if not structure:
-        return
-        
-    conn = get_connection()
-    cur = conn.cursor()
-
-    try:
-        topic = structure.get("Topic", "Unknown Topic")
-        subtopics = structure.get("Subtopics", [])
-        
-        if not subtopics:
-            subtopics = [topic]
-
-        for sub in subtopics:
-            cur.execute("""
-                INSERT INTO course_knowledge
-                (topic, subtopic, definition, formula, keywords, learning_outcome, diagram_caption, raw_text)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s);
-            """, (
-                topic,
-                sub,
-                "\n".join(structure.get("Definitions", [])),
-                "\n".join(structure.get("Formulas", [])),
-                "\n".join(structure.get("Terminology / Keywords", [])),  # Fixed: use correct key
-                "\n".join(structure.get("Learning Outcomes", [])),       # Fixed: use correct key
-                "\n".join(structure.get("Diagram Descriptions", [])),    # Fixed: use correct key
-                ""  # raw_text
-            ))
-        
-        conn.commit()
-        print(f"Successfully saved {len(subtopics)} knowledge entries")
-        
-    except Exception as e:
-        print("Database save failed:", e)
-        conn.rollback()
-    finally:
-        conn.close()

@@ -72,6 +72,22 @@ class KnowledgeGraph:
                     MERGE (t)-[:RELATES_TO]->(k)
                 """, topic=topic, keyword=keyword)
             
+            # Create prerequisites relationships
+            for prereq in structured_data.get("Prerequisites", []):
+                session.run("""
+                    MATCH (t:Topic {name: $topic})
+                    MERGE (p:Topic {name: $prereq})
+                    MERGE (p)-[:PREREQUISITE_FOR]->(t)
+                """, topic=topic, prereq=prereq)
+                
+            # Create applications
+            for app in structured_data.get("Applications", []):
+                session.run("""
+                    MATCH (t:Topic {name: $topic})
+                    MERGE (a:Application {name: $app})
+                    MERGE (t)-[:HAS_APPLICATION]->(a)
+                """, topic=topic, app=app)
+            
             # Auto-detect concept relationships
             self._detect_relationships(session, topic, keywords)
 
@@ -94,14 +110,14 @@ class KnowledgeGraph:
             return ""
             
         with self.driver.session() as session:
-            # Search for relevant concepts with better scoring
+            # Enhanced search with prerequisites and applications
             result = session.run("""
                 MATCH (n)
                 WHERE ANY(term IN $terms WHERE 
                     toLower(n.name) CONTAINS toLower(term) OR 
-                    toLower(n.term) CONTAINS toLower(term) OR 
-                    toLower(n.expression) CONTAINS toLower(term) OR
-                    toLower(n.description) CONTAINS toLower(term)
+                    toLower(coalesce(n.term, '')) CONTAINS toLower(term) OR 
+                    toLower(coalesce(n.expression, '')) CONTAINS toLower(term) OR
+                    toLower(coalesce(n.description, '')) CONTAINS toLower(term)
                 )
                 WITH n, 
                     size([term IN $terms WHERE toLower(n.name) CONTAINS toLower(term)]) as name_matches,
@@ -137,6 +153,8 @@ class KnowledgeGraph:
                     context.append(f"**Keyword**: {node['name']}")
                 elif "Subtopic" in node.labels:
                     context.append(f"**Subtopic**: {node['name']}")
+                elif "Application" in node.labels:
+                    context.append(f"**Application**: {node['name']}")
                 
                 if rel and related:
                     related_name = related.get('name', related.get('term', related.get('expression', 'unknown')))
