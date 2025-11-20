@@ -257,12 +257,3 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - Sentence Transformers for embedding models
 - pgvector for PostgreSQL vector operations
 
-## 📞 Support
-
-For issues and questions:
-1. Check the troubleshooting section
-2. Review logs in terminal/console
-3. Check database connectivity
-4. Verify API keys and environment variables
-
----
