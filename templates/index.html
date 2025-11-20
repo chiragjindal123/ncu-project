@@ -170,6 +170,20 @@
         <input type="file" id="file-input" />
         <button type="submit">Upload File</button>
       </form>
+      <div id="ragas-section" style="margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 8px;">
+          <h3>📊 RAGAS Evaluation</h3>
+          <p>Evaluate the AI Teaching Assistant using RAGAS (Retrieval Augmented Generation Assessment) metrics.</p>
+          
+          <button onclick="runRAGASEvaluation()" style="padding: 10px 20px; background: #059669; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 10px;">
+              🧪 Run RAGAS Evaluation
+          </button>
+          
+          <button onclick="showRAGASDetails()" style="padding: 10px 20px; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer;">
+              📋 View Metrics Info
+          </button>
+          
+          <div id="ragas-results" style="margin-top: 15px;"></div>
+      </div>
       <div id="chatbox"></div>
       <form class="input-row" onsubmit="sendMessage(); return false;">
         <input
@@ -387,6 +401,99 @@
           }
         }
         chatbox.scrollTop = chatbox.scrollHeight;
+      }
+
+      function runRAGASEvaluation() {
+          const resultsDiv = document.getElementById('ragas-results');
+          resultsDiv.innerHTML = '<div style="padding: 10px; background: #fef3c7; border-radius: 4px;">🔄 Running RAGAS evaluation... This may take a few minutes.</div>';
+          
+          fetch('/ragas_evaluation', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({})
+          })
+          .then(response => response.json())
+          .then(data => {
+              if (data.error) {
+                  resultsDiv.innerHTML = `<div style="padding: 10px; background: #fecaca; border-radius: 4px;">❌ Error: ${data.error}</div>`;
+              } else {
+                  displayRAGASResults(data);
+              }
+          })
+          .catch(error => {
+              resultsDiv.innerHTML = `<div style="padding: 10px; background: #fecaca; border-radius: 4px;">❌ Network Error: ${error}</div>`;
+          });
+      }
+
+      function displayRAGASResults(data) {
+          const resultsDiv = document.getElementById('ragas-results');
+          const scores = data.ragas_scores;
+          
+          resultsDiv.innerHTML = `
+              <div style="background: #f0fdf4; padding: 15px; border-radius: 6px; margin-bottom: 15px;">
+                  <h4>🎯 Overall RAGAS Score: ${(data.overall_score * 100).toFixed(1)}% - ${data.performance_rating}</h4>
+                  <p>Evaluated ${data.total_questions} questions on ${data.evaluation_timestamp}</p>
+              </div>
+              
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+                  <div style="background: #eff6ff; padding: 10px; border-radius: 4px;">
+                      <h5>📖 Faithfulness</h5>
+                      <div style="font-size: 20px; font-weight: bold;">${(scores.faithfulness * 100).toFixed(1)}%</div>
+                      <small>Factual accuracy</small>
+                  </div>
+                  
+                  <div style="background: #f0f9ff; padding: 10px; border-radius: 4px;">
+                      <h5>🎯 Answer Relevancy</h5>
+                      <div style="font-size: 20px; font-weight: bold;">${(scores.answer_relevancy * 100).toFixed(1)}%</div>
+                      <small>Question relevance</small>
+                  </div>
+                  
+                  <div style="background: #fefce8; padding: 10px; border-radius: 4px;">
+                      <h5>🔍 Context Precision</h5>
+                      <div style="font-size: 20px; font-weight: bold;">${(scores.context_precision * 100).toFixed(1)}%</div>
+                      <small>Context relevance</small>
+                  </div>
+                  
+                  <div style="background: #f0fdf4; padding: 10px; border-radius: 4px;">
+                      <h5>📚 Context Recall</h5>
+                      <div style="font-size: 20px; font-weight: bold;">${(scores.context_recall * 100).toFixed(1)}%</div>
+                      <small>Context completeness</small>
+                  </div>
+                  
+                  <div style="background: #fdf2f8; padding: 10px; border-radius: 4px;">
+                      <h5>📝 Answer Similarity</h5>
+                      <div style="font-size: 20px; font-weight: bold;">${(scores.answer_similarity * 100).toFixed(1)}%</div>
+                      <small>Semantic similarity</small>
+                  </div>
+                  
+                  <div style="background: #f3f4f6; padding: 10px; border-radius: 4px;">
+                      <h5>✅ Answer Correctness</h5>
+                      <div style="font-size: 20px; font-weight: bold;">${(scores.answer_correctness * 100).toFixed(1)}%</div>
+                      <small>Overall correctness</small>
+                  </div>
+              </div>
+          `;
+      }
+
+      function showRAGASDetails() {
+          fetch('/ragas_detailed')
+              .then(response => response.json())
+              .then(data => {
+                  let detailsHtml = '<div style="background: #f9fafb; padding: 15px; border-radius: 6px; margin-top: 10px;"><h4>📊 RAGAS Metrics Explained</h4>';
+                  
+                  for (const [metric, info] of Object.entries(data)) {
+                      detailsHtml += `
+                          <div style="margin: 10px 0; padding: 8px; background: white; border-radius: 4px;">
+                              <strong>${metric.replace('_', ' ').toUpperCase()}</strong><br>
+                              ${info.description}<br>
+                              <small><em>Range: ${info.range} - ${info.interpretation}</em></small>
+                          </div>
+                      `;
+                  }
+                  
+                  detailsHtml += '</div>';
+                  document.getElementById('ragas-results').innerHTML = detailsHtml;
+              });
       }
 
       document

@@ -4,6 +4,7 @@ import subprocess
 import psycopg2
 import json
 import re
+from datetime import datetime
 from rag_utils import get_context, get_embedding, save_message, get_connection, chunk_text
 from knowledge_extractor import extract_structured_knowledge
 import os
@@ -14,6 +15,7 @@ from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
 import numpy as np
 from knowledge_graph import KnowledgeGraph
+from ragas_evaluation import RAGASEvaluator
 
 model = SentenceTransformer("all-mpnet-base-v2")
 
@@ -377,6 +379,100 @@ def semantic_chunks(text, similarity_threshold=0.70, max_length=1200):
 
     chunks.append(current_chunk.strip())
     return chunks
+
+
+@app.route("/ragas_evaluation", methods=["POST"])
+def ragas_evaluation():
+    """Run RAGAS evaluation on the AI Teaching Assistant"""
+    
+    try:
+        evaluator = RAGASEvaluator()
+        
+        # Get test questions from request or use default
+        data = request.json if request.json else {}
+        test_questions = data.get('test_questions', evaluator.create_comprehensive_test_suite())
+        
+        print(f"Running RAGAS evaluation with {len(test_questions)} test questions...")
+        
+        # Create evaluation dataset
+        dataset = evaluator.create_evaluation_dataset(test_questions)
+        
+        # Run evaluation
+        results = evaluator.evaluate_system(dataset)
+        
+        # Format results for display
+        evaluation_report = {
+            "evaluation_timestamp": datetime.now().isoformat(),
+            "total_questions": len(test_questions),
+            "ragas_scores": {
+                "faithfulness": round(results['faithfulness'], 4),
+                "answer_relevancy": round(results['answer_relevancy'], 4),
+                "context_precision": round(results['context_precision'], 4),
+                "context_recall": round(results['context_recall'], 4),
+                "answer_similarity": round(results['answer_similarity'], 4),
+                "answer_correctness": round(results['answer_correctness'], 4)
+            },
+            "overall_score": round(sum(results.values()) / len(results), 4),
+            "performance_rating": get_performance_rating(results),
+            "detailed_results": results.to_pandas().to_dict('records') if hasattr(results, 'to_pandas') else {}
+        }
+        
+        return jsonify(evaluation_report)
+        
+    except Exception as e:
+        return jsonify({"error": f"RAGAS evaluation failed: {str(e)}"})
+
+def get_performance_rating(results):
+    """Convert RAGAS scores to performance rating"""
+    avg_score = sum(results.values()) / len(results)
+    
+    if avg_score >= 0.8:
+        return "Excellent"
+    elif avg_score >= 0.7:
+        return "Good"
+    elif avg_score >= 0.6:
+        return "Satisfactory"
+    else:
+        return "Needs Improvement"
+
+@app.route("/ragas_detailed", methods=["GET"])
+def ragas_detailed():
+    """Get detailed RAGAS metrics explanation"""
+    
+    metrics_explanation = {
+        "faithfulness": {
+            "description": "Measures how factually accurate the generated answers are",
+            "range": "0-1 (higher is better)",
+            "interpretation": "Checks if the answer contains hallucinations or false information"
+        },
+        "answer_relevancy": {
+            "description": "Measures how relevant the answer is to the given question",
+            "range": "0-1 (higher is better)", 
+            "interpretation": "Evaluates if the answer directly addresses the question asked"
+        },
+        "context_precision": {
+            "description": "Measures the precision of the retrieved context",
+            "range": "0-1 (higher is better)",
+            "interpretation": "Checks if the retrieved context is relevant to the question"
+        },
+        "context_recall": {
+            "description": "Measures how much relevant context was retrieved",
+            "range": "0-1 (higher is better)",
+            "interpretation": "Evaluates if all relevant information was included in context"
+        },
+        "answer_similarity": {
+            "description": "Semantic similarity between generated and ground truth answers",
+            "range": "0-1 (higher is better)",
+            "interpretation": "Measures how close the answer is to the expected response"
+        },
+        "answer_correctness": {
+            "description": "Overall correctness of the answer",
+            "range": "0-1 (higher is better)",
+            "interpretation": "Combines factual accuracy and semantic similarity"
+        }
+    }
+    
+    return jsonify(metrics_explanation)
 
 
 
