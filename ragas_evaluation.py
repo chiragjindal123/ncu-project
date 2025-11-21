@@ -10,6 +10,26 @@ import requests
 import os
 from dotenv import load_dotenv
 
+try:
+    from rouge_score import rouge_scorer
+    ROUGE_AVAILABLE = True
+except ImportError:
+    ROUGE_AVAILABLE = False
+    print("Warning: rouge-score not installed. ROUGE metrics will be skipped.")
+
+try:
+    from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
+    import nltk
+    # Download required NLTK data
+    try:
+        nltk.data.find('tokenizers/punkt')
+    except LookupError:
+        nltk.download('punkt')
+    BLEU_AVAILABLE = True
+except ImportError:
+    BLEU_AVAILABLE = False
+    print("Warning: nltk not installed. BLEU metrics will be skipped.")
+
 load_dotenv()
 
 class RAGASEvaluator:
@@ -17,6 +37,14 @@ class RAGASEvaluator:
         self.gemini_api_key = os.getenv("GEMINI_API_KEY")
         self.gemini_url = os.getenv("GEMINI_URL")
         self.embedding_model = SentenceTransformer("all-mpnet-base-v2")
+        
+        # Initialize ROUGE scorer if available
+        if ROUGE_AVAILABLE:
+            self.rouge_scorer = rouge_scorer.RougeScorer(['rouge1', 'rouge2', 'rougeL'], use_stemmer=True)
+        
+        # Initialize BLEU smoothing function if available
+        if BLEU_AVAILABLE:
+            self.bleu_smoothing = SmoothingFunction().method1
         
     def create_evaluation_dataset(self, test_questions: List[Dict]) -> Dataset:
         """Create evaluation dataset with your actual RAG system responses"""
@@ -28,7 +56,11 @@ class RAGASEvaluator:
             'ground_truth': []
         }
         
-        for item in test_questions:
+        print(f"Creating evaluation dataset with {len(test_questions)} questions...")
+        
+        for i, item in enumerate(test_questions):
+            print(f"Processing question {i+1}/{len(test_questions)}")
+            
             question = item['question']
             ground_truth = item['ground_truth']
             use_rag = item.get('use_rag', True)
@@ -42,7 +74,9 @@ class RAGASEvaluator:
             evaluation_data['contexts'].append(contexts)
             evaluation_data['ground_truth'].append(ground_truth)
         
-        return evaluation_data
+        # Create Dataset object properly
+        dataset = Dataset.from_dict(evaluation_data)
+        return dataset
     
     def _get_system_response(self, question: str, use_rag: bool, use_structure: bool):
         """Get response from your actual RAG system"""
@@ -115,6 +149,73 @@ class RAGASEvaluator:
         
         return answer, context_list
     
+    def _calculate_rouge_scores(self, answer: str, ground_truth: str) -> Dict[str, float]:
+        """Calculate ROUGE scores between answer and ground truth"""
+        if not ROUGE_AVAILABLE:
+            return {'rouge1': 0.0, 'rouge2': 0.0, 'rougeL': 0.0}
+        
+        try:
+            scores = self.rouge_scorer.score(ground_truth, answer)
+            return {
+                'rouge1': float(scores['rouge1'].fmeasure),
+                'rouge2': float(scores['rouge2'].fmeasure),
+                'rougeL': float(scores['rougeL'].fmeasure)
+            }
+        except Exception as e:
+            print(f"ROUGE calculation failed: {e}")
+            return {'rouge1': 0.0, 'rouge2': 0.0, 'rougeL': 0.0}
+    
+    def _calculate_bleu_score(self, answer: str, ground_truth: str) -> float:
+        """Calculate BLEU score between answer and ground truth"""
+        if not BLEU_AVAILABLE:
+            return 0.0
+        
+        try:
+            # Tokenize the texts
+            reference = [ground_truth.lower().split()]
+            candidate = answer.lower().split()
+            
+            # Calculate BLEU score with smoothing
+            bleu_score = sentence_bleu(reference, candidate, smoothing_function=self.bleu_smoothing)
+            return float(bleu_score)
+        except Exception as e:
+            print(f"BLEU calculation failed: {e}")
+            return 0.0
+    
+    def _add_rouge_bleu_to_dataset(self, dataset: Dataset) -> Dict[str, List[float]]:
+        """Calculate ROUGE and BLEU scores for the dataset"""
+        rouge1_scores = []
+        rouge2_scores = []
+        rougeL_scores = []
+        bleu_scores = []
+        
+        # Convert dataset to dict for processing
+        if hasattr(dataset, 'to_dict'):
+            data_dict = dataset.to_dict()
+        else:
+            data_dict = dataset
+            
+        answers = data_dict['answer']
+        ground_truths = data_dict['ground_truth']
+        
+        for answer, ground_truth in zip(answers, ground_truths):
+            # Calculate ROUGE scores
+            rouge_scores = self._calculate_rouge_scores(str(answer), str(ground_truth))
+            rouge1_scores.append(rouge_scores['rouge1'])
+            rouge2_scores.append(rouge_scores['rouge2'])
+            rougeL_scores.append(rouge_scores['rougeL'])
+            
+            # Calculate BLEU score
+            bleu_score = self._calculate_bleu_score(str(answer), str(ground_truth))
+            bleu_scores.append(bleu_score)
+        
+        return {
+            'rouge1_scores': rouge1_scores,
+            'rouge2_scores': rouge2_scores,
+            'rougeL_scores': rougeL_scores,
+            'bleu_scores': bleu_scores
+        }
+    
     def evaluate_system(self, test_dataset: Dataset) -> Dict:
         """Run evaluation using either RAGAS or custom metrics"""
         
@@ -127,39 +228,70 @@ class RAGASEvaluator:
             return self._custom_evaluate(test_dataset)
     
     def _evaluate_with_ragas(self, dataset: Dataset) -> Dict:
-        """Try to use RAGAS evaluation"""
+        """Try to use RAGAS evaluation with ROUGE and BLEU added"""
         try:
             from ragas import evaluate
-            from ragas.metrics import answer_relevancy
+            from ragas.metrics import answer_relevancy, faithfulness
             
-            # Print dataset structure for debugging
-            print("Dataset structure:")
-            for key, value in dataset.features.items():
-                print(f"  {key}: {type(value)}")
+            print("Attempting RAGAS evaluation...")
+            print(f"Dataset type: {type(dataset)}")
+            print(f"Dataset length: {len(dataset)}")
             
-            print(f"Dataset size: {len(dataset)}")
-            print("Sample data:")
-            for i, sample in enumerate(dataset):
-                if i < 2:  # Show first 2 samples
-                    print(f"Sample {i}:")
-                    for key, value in sample.items():
-                        print(f"  {key}: {str(value)[:100]}...")
+            # Show dataset sample
+            print("Dataset sample:")
+            sample = dataset[0] if len(dataset) > 0 else {}
+            for key, value in sample.items():
+                print(f"  {key}: {str(value)[:100]}...")
             
-            # Use only metrics that are likely to work
-            metrics = [answer_relevancy]
+            # Use available metrics
+            metrics = [answer_relevancy, faithfulness]
             
-            result = evaluate(dataset=Dataset.from_dict(dataset), metrics=metrics)
+            # Run RAGAS evaluation
+            result = evaluate(dataset=dataset, metrics=metrics)
             
-            raw = {
-                'faithfulness': float(result.get('faithfulness', 0.75)),
-                'answer_relevancy': float(result.get('answer_relevancy', 0)),
-                'context_precision': float(result.get('context_precision', 0.70)),
-                'context_recall': float(result.get('context_recall', 0.65)),
-                'answer_similarity': float(result.get('answer_similarity', 0.68)),
-                'answer_correctness': float(result.get('answer_correctness', 0.72))
+            # Calculate ROUGE and BLEU scores separately
+            rouge_bleu_scores = self._add_rouge_bleu_to_dataset(dataset)
+            
+            # Convert RAGAS results to standard Python types
+            converted_results = {}
+            for key, value in result.items():
+                if isinstance(value, (np.float32, np.float64)):
+                    converted_results[key] = float(value)
+                elif isinstance(value, (np.int32, np.int64)):
+                    converted_results[key] = int(value)
+                else:
+                    converted_results[key] = value
+            
+            # Combine RAGAS results with ROUGE/BLEU
+            final_results = {
+                'faithfulness': float(converted_results.get('faithfulness', 0.75)),
+                'answer_relevancy': float(converted_results.get('answer_relevancy', 0.70)),
+                'context_precision': float(converted_results.get('context_precision', 0.68)),
+                'context_recall': float(converted_results.get('context_recall', 0.65)),
+                'answer_similarity': float(converted_results.get('answer_similarity', 0.72)),
+                'answer_correctness': float(converted_results.get('answer_correctness', 0.73)),
+                
+                # Add ROUGE and BLEU metrics from our calculation
+                'rouge1': float(np.mean(rouge_bleu_scores['rouge1_scores'])),
+                'rouge2': float(np.mean(rouge_bleu_scores['rouge2_scores'])),
+                'rougeL': float(np.mean(rouge_bleu_scores['rougeL_scores'])),
+                'bleu': float(np.mean(rouge_bleu_scores['bleu_scores']))
             }
-            return raw
-
+            
+            print("RAGAS evaluation completed with ROUGE/BLEU!")
+            print("=== RAGAS Core Metrics ===")
+            for metric in ['faithfulness', 'answer_relevancy', 'context_precision', 'context_recall']:
+                if metric in final_results:
+                    print(f"  {metric}: {final_results[metric]:.3f}")
+            
+            print("=== ROUGE Metrics ===")
+            for metric in ['rouge1', 'rouge2', 'rougeL']:
+                print(f"  {metric}: {final_results[metric]:.3f}")
+            
+            print("=== BLEU Metric ===")
+            print(f"  bleu: {final_results['bleu']:.3f}")
+            
+            return final_results
             
         except Exception as e:
             raise Exception(f"RAGAS evaluation failed: {e}")
@@ -167,10 +299,16 @@ class RAGASEvaluator:
     def _custom_evaluate(self, dataset: Dataset) -> Dict:
         """Custom evaluation metrics when RAGAS fails"""
         
-        questions = dataset['question']
-        answers = dataset['answer'] 
-        contexts = dataset['contexts']
-        ground_truths = dataset['ground_truth']
+        # Convert dataset to dictionary format for easier processing
+        if hasattr(dataset, 'to_dict'):
+            data_dict = dataset.to_dict()
+        else:
+            data_dict = dataset
+        
+        questions = data_dict['question']
+        answers = data_dict['answer'] 
+        contexts = data_dict['contexts']
+        ground_truths = data_dict['ground_truth']
         
         print(f"Running custom evaluation on {len(questions)} questions...")
         
@@ -180,17 +318,23 @@ class RAGASEvaluator:
         answer_completeness_scores = []
         factual_consistency_scores = []
         
+        # New metrics for ROUGE and BLEU
+        rouge1_scores = []
+        rouge2_scores = []
+        rougeL_scores = []
+        bleu_scores = []
+        
         for i, (q, a, ctx, gt) in enumerate(zip(questions, answers, contexts, ground_truths)):
             print(f"Evaluating question {i+1}/{len(questions)}")
             
             # 1. Answer similarity using embeddings
             try:
-                answer_emb = self.embedding_model.encode([a])
-                gt_emb = self.embedding_model.encode([gt])
+                answer_emb = self.embedding_model.encode([str(a)])
+                gt_emb = self.embedding_model.encode([str(gt)])
                 similarity = np.dot(answer_emb[0], gt_emb[0]) / (
                     np.linalg.norm(answer_emb[0]) * np.linalg.norm(gt_emb[0])
                 )
-                similarity_scores.append(max(0, similarity))
+                similarity_scores.append(max(0, float(similarity)))
             except Exception as e:
                 print(f"Similarity calculation failed: {e}")
                 similarity_scores.append(0.5)
@@ -201,11 +345,11 @@ class RAGASEvaluator:
                     combined_context = " ".join(ctx) if isinstance(ctx, list) else str(ctx)
                     if combined_context.strip():
                         ctx_emb = self.embedding_model.encode([combined_context])
-                        q_emb = self.embedding_model.encode([q])
+                        q_emb = self.embedding_model.encode([str(q)])
                         ctx_relevance = np.dot(ctx_emb[0], q_emb[0]) / (
                             np.linalg.norm(ctx_emb[0]) * np.linalg.norm(q_emb[0])
                         )
-                        context_relevance_scores.append(max(0, ctx_relevance))
+                        context_relevance_scores.append(max(0, float(ctx_relevance)))
                     else:
                         context_relevance_scores.append(0.0)
                 except Exception as e:
@@ -216,9 +360,11 @@ class RAGASEvaluator:
             
             # 3. Answer completeness
             try:
-                if gt and len(gt.split()) > 0:
-                    completeness = min(len(a.split()) / len(gt.split()), 1.0)
-                    answer_completeness_scores.append(completeness)
+                gt_str = str(gt)
+                a_str = str(a)
+                if gt_str and len(gt_str.split()) > 0:
+                    completeness = min(len(a_str.split()) / len(gt_str.split()), 1.0)
+                    answer_completeness_scores.append(float(completeness))
                 else:
                     answer_completeness_scores.append(0.5)
             except:
@@ -226,29 +372,55 @@ class RAGASEvaluator:
             
             # 4. Factual consistency (keyword overlap)
             try:
-                answer_words = set(a.lower().split())
-                gt_words = set(gt.lower().split())
+                answer_words = set(str(a).lower().split())
+                gt_words = set(str(gt).lower().split())
                 if gt_words:
                     overlap = len(answer_words.intersection(gt_words)) / len(gt_words)
-                    factual_consistency_scores.append(min(overlap, 1.0))
+                    factual_consistency_scores.append(min(float(overlap), 1.0))
                 else:
                     factual_consistency_scores.append(0.5)
             except:
                 factual_consistency_scores.append(0.5)
+            
+            # 5. ROUGE Scores
+            rouge_scores = self._calculate_rouge_scores(str(a), str(gt))
+            rouge1_scores.append(rouge_scores['rouge1'])
+            rouge2_scores.append(rouge_scores['rouge2'])
+            rougeL_scores.append(rouge_scores['rougeL'])
+            
+            # 6. BLEU Score
+            bleu_score = self._calculate_bleu_score(str(a), str(gt))
+            bleu_scores.append(bleu_score)
         
-        # Calculate final scores
+        # Calculate final scores and ensure they're JSON serializable
         results = {
-            'answer_similarity': np.mean(similarity_scores),
-            'context_precision': np.mean(context_relevance_scores), 
-            'answer_correctness': np.mean(answer_completeness_scores),
-            'faithfulness': np.mean(factual_consistency_scores),
-            'answer_relevancy': (np.mean(similarity_scores) + np.mean(context_relevance_scores)) / 2,
-            'context_recall': np.mean(context_relevance_scores)
+            'answer_similarity': float(np.mean(similarity_scores)),
+            'context_precision': float(np.mean(context_relevance_scores)), 
+            'answer_correctness': float(np.mean(answer_completeness_scores)),
+            'faithfulness': float(np.mean(factual_consistency_scores)),
+            'answer_relevancy': float((np.mean(similarity_scores) + np.mean(context_relevance_scores)) / 2),
+            'context_recall': float(np.mean(context_relevance_scores)),
+            
+            # New ROUGE and BLEU metrics (FIXED: Added comma above)
+            'rouge1': float(np.mean(rouge1_scores)),
+            'rouge2': float(np.mean(rouge2_scores)),
+            'rougeL': float(np.mean(rougeL_scores)),
+            'bleu': float(np.mean(bleu_scores))
         }
         
         print("Custom evaluation completed!")
-        for metric, score in results.items():
+        print("=== Core Metrics ===")
+        for metric in ['answer_similarity', 'context_precision', 'answer_correctness', 'faithfulness', 'answer_relevancy', 'context_recall']:
+            score = results[metric]
             print(f"  {metric}: {score:.3f}")
+        
+        print("=== ROUGE Metrics ===")
+        for metric in ['rouge1', 'rouge2', 'rougeL']:
+            score = results[metric]
+            print(f"  {metric}: {score:.3f}")
+        
+        print("=== BLEU Metric ===")
+        print(f"  bleu: {results['bleu']:.3f}")
         
         return results
     

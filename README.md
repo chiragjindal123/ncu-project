@@ -14,7 +14,7 @@ An intelligent AI Teaching Assistant that combines Neo4j knowledge graphs with R
 
 ## 📋 Prerequisites
 
-- Python 3.12.0
+- Python 3.10.11
 - Docker (for databases)
 - Neo4j Desktop
 - Gemini API Key
@@ -30,7 +30,7 @@ cd ai-teaching-assistant
 ### 2. Create Python Virtual Environment
 ```bash
 # Create virtual environment with Python 3.12.0
-python3.12 -m venv ai_ta_env
+python3.10.11 -m venv ai_ta_env
 
 # Activate virtual environment
 # On Windows:
@@ -39,7 +39,7 @@ ai_ta_env\Scripts\activate
 source ai_ta_env/bin/activate
 
 # Verify Python version
-python --version  # Should show Python 3.12.0
+python --version  # Should show Python 3.10.11
 ```
 
 ### 3. Install Python Dependencies
@@ -80,6 +80,7 @@ Create a `.env` file in the project root:
 # Gemini API Configuration
 GEMINI_API_KEY=your_gemini_api_key_here
 GEMINI_URL=https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent
+OPENAI_API_KEY=your_key
 
 # Neo4j Configuration
 NEO4J_PASSWORD=password123

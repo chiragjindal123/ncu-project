@@ -170,19 +170,51 @@
         <input type="file" id="file-input" />
         <button type="submit">Upload File</button>
       </form>
-      <div id="ragas-section" style="margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 8px;">
-          <h3>📊 RAGAS Evaluation</h3>
-          <p>Evaluate the AI Teaching Assistant using RAGAS (Retrieval Augmented Generation Assessment) metrics.</p>
-          
-          <button onclick="runRAGASEvaluation()" style="padding: 10px 20px; background: #059669; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 10px;">
-              🧪 Run RAGAS Evaluation
-          </button>
-          
-          <button onclick="showRAGASDetails()" style="padding: 10px 20px; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer;">
-              📋 View Metrics Info
-          </button>
-          
-          <div id="ragas-results" style="margin-top: 15px;"></div>
+      <div
+        id="ragas-section"
+        style="
+          margin: 20px 0;
+          padding: 15px;
+          border: 1px solid #ddd;
+          border-radius: 8px;
+        "
+      >
+        <h3>📊 RAGAS Evaluation</h3>
+        <p>
+          Evaluate the AI Teaching Assistant using RAGAS (Retrieval Augmented
+          Generation Assessment) metrics.
+        </p>
+
+        <button
+          onclick="runRAGASEvaluation()"
+          style="
+            padding: 10px 20px;
+            background: #059669;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+          "
+        >
+          🧪 Run RAGAS Evaluation
+        </button>
+
+        <button
+          onclick="showRAGASDetails()"
+          style="
+            padding: 10px 20px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+          "
+        >
+          📋 View Metrics Info
+        </button>
+
+        <div id="ragas-results" style="margin-top: 15px"></div>
       </div>
       <div id="chatbox"></div>
       <form class="input-row" onsubmit="sendMessage(); return false;">
@@ -404,96 +436,203 @@
       }
 
       function runRAGASEvaluation() {
-          const resultsDiv = document.getElementById('ragas-results');
-          resultsDiv.innerHTML = '<div style="padding: 10px; background: #fef3c7; border-radius: 4px;">🔄 Running RAGAS evaluation... This may take a few minutes.</div>';
-          
-          fetch('/ragas_evaluation', {
-              method: 'POST',
-              headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({})
+        const resultsDiv = document.getElementById("ragas-results");
+        resultsDiv.innerHTML =
+          '<div style="padding: 10px; background: #fef3c7; border-radius: 4px;">🔄 Running RAGAS evaluation... This may take a few minutes.</div>';
+
+        fetch("/ragas_evaluation", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            if (data.error) {
+              resultsDiv.innerHTML = `<div style="padding: 10px; background: #fecaca; border-radius: 4px;">❌ Error: ${data.error}</div>`;
+            } else {
+              displayRAGASResults(data);
+            }
           })
-          .then(response => response.json())
-          .then(data => {
-              if (data.error) {
-                  resultsDiv.innerHTML = `<div style="padding: 10px; background: #fecaca; border-radius: 4px;">❌ Error: ${data.error}</div>`;
-              } else {
-                  displayRAGASResults(data);
-              }
-          })
-          .catch(error => {
-              resultsDiv.innerHTML = `<div style="padding: 10px; background: #fecaca; border-radius: 4px;">❌ Network Error: ${error}</div>`;
+          .catch((error) => {
+            resultsDiv.innerHTML = `<div style="padding: 10px; background: #fecaca; border-radius: 4px;">❌ Network Error: ${error}</div>`;
           });
       }
 
       function displayRAGASResults(data) {
-          const resultsDiv = document.getElementById('ragas-results');
-          const scores = data.ragas_scores;
-          
+        const resultsDiv = document.getElementById("ragas-results");
+
+        console.log("Received RAGAS data:", data);
+        console.log("Scores object:", data.ragas_scores);
+
+        const scores = data.ragas_scores || {};
+
+        if (!scores || Object.keys(scores).length === 0) {
           resultsDiv.innerHTML = `
-              <div style="background: #f0fdf4; padding: 15px; border-radius: 6px; margin-bottom: 15px;">
-                  <h4>🎯 Overall RAGAS Score: ${(data.overall_score * 100).toFixed(1)}% - ${data.performance_rating}</h4>
-                  <p>Evaluated ${data.total_questions} questions on ${data.evaluation_timestamp}</p>
-              </div>
-              
-              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
-                  <div style="background: #eff6ff; padding: 10px; border-radius: 4px;">
-                      <h5>📖 Faithfulness</h5>
-                      <div style="font-size: 20px; font-weight: bold;">${(scores.faithfulness * 100).toFixed(1)}%</div>
-                      <small>Factual accuracy</small>
-                  </div>
-                  
-                  <div style="background: #f0f9ff; padding: 10px; border-radius: 4px;">
-                      <h5>🎯 Answer Relevancy</h5>
-                      <div style="font-size: 20px; font-weight: bold;">${(scores.answer_relevancy * 100).toFixed(1)}%</div>
-                      <small>Question relevance</small>
-                  </div>
-                  
-                  <div style="background: #fefce8; padding: 10px; border-radius: 4px;">
-                      <h5>🔍 Context Precision</h5>
-                      <div style="font-size: 20px; font-weight: bold;">${(scores.context_precision * 100).toFixed(1)}%</div>
-                      <small>Context relevance</small>
-                  </div>
-                  
-                  <div style="background: #f0fdf4; padding: 10px; border-radius: 4px;">
-                      <h5>📚 Context Recall</h5>
-                      <div style="font-size: 20px; font-weight: bold;">${(scores.context_recall * 100).toFixed(1)}%</div>
-                      <small>Context completeness</small>
-                  </div>
-                  
-                  <div style="background: #fdf2f8; padding: 10px; border-radius: 4px;">
-                      <h5>📝 Answer Similarity</h5>
-                      <div style="font-size: 20px; font-weight: bold;">${(scores.answer_similarity * 100).toFixed(1)}%</div>
-                      <small>Semantic similarity</small>
-                  </div>
-                  
-                  <div style="background: #f3f4f6; padding: 10px; border-radius: 4px;">
-                      <h5>✅ Answer Correctness</h5>
-                      <div style="font-size: 20px; font-weight: bold;">${(scores.answer_correctness * 100).toFixed(1)}%</div>
-                      <small>Overall correctness</small>
-                  </div>
-              </div>
-          `;
+            <div style="padding: 10px; background: #fecaca; border-radius: 4px;">
+                ❌ Error: No RAGAS scores found in response. 
+                <details>
+                    <summary>Debug Info</summary>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                </details>
+            </div>
+        `;
+          return;
+        }
+
+        const getScore = (metric, fallback = 0) => {
+          const value = scores[metric];
+          return value !== undefined && value !== null ? value : fallback;
+        };
+
+        resultsDiv.innerHTML = `
+        <div style="background: #f0fdf4; padding: 15px; border-radius: 6px; margin-bottom: 15px;">
+            <h4>🎯 Overall RAGAS Score: ${(data.overall_score * 100).toFixed(
+              1
+            )}% - ${data.performance_rating}</h4>
+            <p>Evaluated ${data.total_questions} questions on ${
+          data.evaluation_timestamp.split("T")[0]
+        } (${data.evaluation_type} Evaluation)</p>
+            <div style="margin-top: 8px; font-size: 0.9em; color: #6b7280;">
+                📊 Core Metrics Average: ${(
+                  data.core_metrics_score * 100
+                ).toFixed(1)}% | 
+                🔤 Surface Metrics Average: ${(
+                  data.surface_metrics_score * 100
+                ).toFixed(1)}%
+            </div>
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+            <h4 style="margin-bottom: 10px; color: #1f2937;">📊 Core RAGAS Metrics (RAG Quality Focus)</h4>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px;">
+                <div style="background: #eff6ff; padding: 10px; border-radius: 4px;">
+                    <h5 style="margin: 0 0 5px 0;">📖 Faithfulness</h5>
+                    <div style="font-size: 20px; font-weight: bold;">${(
+                      getScore("faithfulness") * 100
+                    ).toFixed(1)}%</div>
+                    <small>Factual consistency</small>
+                </div>
+                
+                <div style="background: #f0f9ff; padding: 10px; border-radius: 4px;">
+                    <h5 style="margin: 0 0 5px 0;">🎯 Answer Relevancy</h5>
+                    <div style="font-size: 20px; font-weight: bold;">${(
+                      getScore("answer_relevancy") * 100
+                    ).toFixed(1)}%</div>
+                    <small>Question relevance</small>
+                </div>
+                
+                <div style="background: #fefce8; padding: 10px; border-radius: 4px;">
+                    <h5 style="margin: 0 0 5px 0;">🔍 Context Precision</h5>
+                    <div style="font-size: 20px; font-weight: bold;">${(
+                      getScore("context_precision") * 100
+                    ).toFixed(1)}%</div>
+                    <small>Context relevance</small>
+                </div>
+                
+                <div style="background: #f0fdf4; padding: 10px; border-radius: 4px;">
+                    <h5 style="margin: 0 0 5px 0;">📚 Context Recall</h5>
+                    <div style="font-size: 20px; font-weight: bold;">${(
+                      getScore("context_recall") * 100
+                    ).toFixed(1)}%</div>
+                    <small>Context completeness</small>
+                </div>
+                
+                <div style="background: #fdf2f8; padding: 10px; border-radius: 4px;">
+                    <h5 style="margin: 0 0 5px 0;">📝 Answer Similarity</h5>
+                    <div style="font-size: 20px; font-weight: bold;">${(
+                      getScore("answer_similarity") * 100
+                    ).toFixed(1)}%</div>
+                    <small>Semantic similarity</small>
+                </div>
+                
+                <div style="background: #f3f4f6; padding: 10px; border-radius: 4px;">
+                    <h5 style="margin: 0 0 5px 0;">✅ Answer Correctness</h5>
+                    <div style="font-size: 20px; font-weight: bold;">${(
+                      getScore("answer_correctness") * 100
+                    ).toFixed(1)}%</div>
+                    <small>Overall correctness</small>
+                </div>
+            </div>
+        </div>
+        
+        <div style="margin-bottom: 15px;">
+            <h4 style="margin-bottom: 10px; color: #1f2937;">🔤 Surface Metrics (Text Similarity Only)</h4>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px;">
+                <div style="background: #ecfdf5; padding: 10px; border-radius: 4px;">
+                    <h5 style="margin: 0 0 5px 0;">📊 ROUGE-1</h5>
+                    <div style="font-size: 18px; font-weight: bold;">${(
+                      getScore("rouge1") * 100
+                    ).toFixed(1)}%</div>
+                    <small>Unigram overlap</small>
+                </div>
+                
+                <div style="background: #f0fdf4; padding: 10px; border-radius: 4px;">
+                    <h5 style="margin: 0 0 5px 0;">📊 ROUGE-2</h5>
+                    <div style="font-size: 18px; font-weight: bold;">${(
+                      getScore("rouge2") * 100
+                    ).toFixed(1)}%</div>
+                    <small>Bigram overlap</small>
+                </div>
+                
+                <div style="background: #f7fee7; padding: 10px; border-radius: 4px;">
+                    <h5 style="margin: 0 0 5px 0;">📊 ROUGE-L</h5>
+                    <div style="font-size: 18px; font-weight: bold;">${(
+                      getScore("rougeL") * 100
+                    ).toFixed(1)}%</div>
+                    <small>Longest sequence</small>
+                </div>
+                
+                <div style="background: #fef7ff; padding: 10px; border-radius: 4px;">
+                    <h5 style="margin: 0 0 5px 0;">🎯 BLEU Score</h5>
+                    <div style="font-size: 18px; font-weight: bold;">${(
+                      getScore("bleu") * 100
+                    ).toFixed(1)}%</div>
+                    <small>Precision-based</small>
+                </div>
+            </div>
+        </div>
+        
+        <div style="background: #f8fafc; padding: 12px; border-radius: 4px; border-left: 4px solid #6366f1;">
+            <small><strong>Note:</strong> Overall score is based on core metrics only, which focus on RAG quality and answer relevance. Surface metrics measure text-level similarity with ground truth answers.</small>
+        </div>
+        
+        <div style="margin-top: 10px;">
+            <details style="background: #f1f5f9; padding: 10px; border-radius: 4px;">
+                <summary style="cursor: pointer; font-weight: bold;">🔍 Debug: View Raw Data</summary>
+                <pre style="background: white; padding: 10px; border-radius: 4px; margin-top: 5px; overflow-x: auto; font-size: 12px;">${JSON.stringify(
+                  data,
+                  null,
+                  2
+                )}</pre>
+            </details>
+        </div>
+    `;
       }
 
       function showRAGASDetails() {
-          fetch('/ragas_detailed')
-              .then(response => response.json())
-              .then(data => {
-                  let detailsHtml = '<div style="background: #f9fafb; padding: 15px; border-radius: 6px; margin-top: 10px;"><h4>📊 RAGAS Metrics Explained</h4>';
-                  
-                  for (const [metric, info] of Object.entries(data)) {
-                      detailsHtml += `
+        fetch("/ragas_detailed")
+          .then((response) => response.json())
+          .then((data) => {
+            let detailsHtml =
+              '<div style="background: #f9fafb; padding: 15px; border-radius: 6px; margin-top: 10px;"><h4>📊 RAGAS Metrics Explained</h4>';
+
+            for (const [metric, info] of Object.entries(data)) {
+              detailsHtml += `
                           <div style="margin: 10px 0; padding: 8px; background: white; border-radius: 4px;">
-                              <strong>${metric.replace('_', ' ').toUpperCase()}</strong><br>
+                              <strong>${metric
+                                .replace("_", " ")
+                                .toUpperCase()}</strong><br>
                               ${info.description}<br>
-                              <small><em>Range: ${info.range} - ${info.interpretation}</em></small>
+                              <small><em>Range: ${info.range} - ${
+                info.interpretation
+              }</em></small>
                           </div>
                       `;
-                  }
-                  
-                  detailsHtml += '</div>';
-                  document.getElementById('ragas-results').innerHTML = detailsHtml;
-              });
+            }
+
+            detailsHtml += "</div>";
+            document.getElementById("ragas-results").innerHTML = detailsHtml;
+          });
       }
 
       document

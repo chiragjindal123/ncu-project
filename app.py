@@ -392,48 +392,126 @@ def ragas_evaluation():
         data = request.json if request.json else {}
         test_questions = data.get('test_questions', evaluator.create_comprehensive_test_suite())
         
-        print(f"Running RAGAS evaluation with {len(test_questions)} test questions...")
+        print(f"Running evaluation with {len(test_questions)} test questions...")
         
         # Create evaluation dataset
         dataset = evaluator.create_evaluation_dataset(test_questions)
         
-        # Run evaluation
+        # Run evaluation (either RAGAS or custom)
         results = evaluator.evaluate_system(dataset)
         
-        # Format results for display
+         # Calculate core metrics average (RAG quality focused)
+        core_metrics_scores = [
+            results.get('faithfulness', 0),
+            results.get('answer_relevancy', 0),
+            results.get('context_precision', 0),
+            results.get('context_recall', 0),
+            results.get('answer_similarity', 0),
+            results.get('answer_correctness', 0)
+        ]
+        
+        # Calculate surface metrics average (text similarity focused)
+        surface_metrics_scores = [
+            results.get('rouge1', 0),
+            results.get('rouge2', 0),
+            results.get('rougeL', 0),
+            results.get('bleu', 0)
+        ]
+        
+        core_average = sum(core_metrics_scores) / len(core_metrics_scores)
+        surface_average = sum(surface_metrics_scores) / len(surface_metrics_scores)
+        
+        
+        # Format results for display - INCLUDE ALL METRICS
         evaluation_report = {
             "evaluation_timestamp": datetime.now().isoformat(),
+            "evaluation_type": "Custom",  # Since RAGAS usually fails
             "total_questions": len(test_questions),
             "ragas_scores": {
-                "faithfulness": round(results['faithfulness'], 4),
-                "answer_relevancy": round(results['answer_relevancy'], 4),
-                "context_precision": round(results['context_precision'], 4),
-                "context_recall": round(results['context_recall'], 4),
-                "answer_similarity": round(results['answer_similarity'], 4),
-                "answer_correctness": round(results['answer_correctness'], 4)
+                # Core RAGAS-style metrics
+                "faithfulness": round(results.get('faithfulness', 0), 4),
+                "answer_relevancy": round(results.get('answer_relevancy', 0), 4),
+                "context_precision": round(results.get('context_precision', 0), 4),
+                "context_recall": round(results.get('context_recall', 0), 4),
+                "answer_similarity": round(results.get('answer_similarity', 0), 4),
+                "answer_correctness": round(results.get('answer_correctness', 0), 4),
+                
+                # ADD ROUGE AND BLEU METRICS HERE
+                "rouge1": round(results.get('rouge1', 0), 4),
+                "rouge2": round(results.get('rouge2', 0), 4),
+                "rougeL": round(results.get('rougeL', 0), 4),
+                "bleu": round(results.get('bleu', 0), 4)
             },
-            "overall_score": round(sum(results.values()) / len(results), 4),
-            "performance_rating": get_performance_rating(results),
-            "detailed_results": results.to_pandas().to_dict('records') if hasattr(results, 'to_pandas') else {}
+            "overall_score": round(core_average, 4),  # Only core metrics for overall score
+            "core_metrics_score": round(core_average, 4),
+            "surface_metrics_score": round(surface_average, 4),
+            "performance_rating": get_performance_rating_core_only(core_average),
+            "detailed_results": {
+                "core_metrics": {
+                    "faithfulness": {
+                        "score": round(results.get('faithfulness', 0), 4),
+                        "description": "Factual consistency with retrieved context"
+                    },
+                    "answer_relevancy": {
+                        "score": round(results.get('answer_relevancy', 0), 4),
+                        "description": "How well answer addresses the question"
+                    },
+                    "context_precision": {
+                        "score": round(results.get('context_precision', 0), 4),
+                        "description": "Relevance of retrieved context"
+                    },
+                    "context_recall": {
+                        "score": round(results.get('context_recall', 0), 4),
+                        "description": "Completeness of context retrieval"
+                    },
+                    "answer_similarity": {
+                        "score": round(results.get('answer_similarity', 0), 4),
+                        "description": "Semantic similarity to ground truth"
+                    },
+                    "answer_correctness": {
+                        "score": round(results.get('answer_correctness', 0), 4),
+                        "description": "Overall response accuracy"
+                    }
+                },
+                "surface_metrics": {
+                    "rouge1": {
+                        "score": round(results.get('rouge1', 0), 4),
+                        "description": "Unigram overlap with ground truth"
+                    },
+                    "rouge2": {
+                        "score": round(results.get('rouge2', 0), 4),
+                        "description": "Bigram overlap with ground truth"
+                    },
+                    "rougeL": {
+                        "score": round(results.get('rougeL', 0), 4),
+                        "description": "Longest common subsequence overlap"
+                    },
+                    "bleu": {
+                        "score": round(results.get('bleu', 0), 4),
+                        "description": "Precision-based similarity score"
+                    }
+                }
+            }
         }
         
         return jsonify(evaluation_report)
         
     except Exception as e:
-        return jsonify({"error": f"RAGAS evaluation failed: {str(e)}"})
+        return jsonify({"error": f"Evaluation failed: {str(e)}"})
 
-def get_performance_rating(results):
-    """Convert RAGAS scores to performance rating"""
-    avg_score = sum(results.values()) / len(results)
+def get_performance_rating_core_only(core_average):
+    """Get performance rating based on core metrics only"""
     
-    if avg_score >= 0.8:
+    if core_average >= 0.8:
         return "Excellent"
-    elif avg_score >= 0.7:
+    elif core_average >= 0.7:
         return "Good"
-    elif avg_score >= 0.6:
+    elif core_average >= 0.6:
         return "Satisfactory"
-    else:
+    elif core_average >= 0.5:
         return "Needs Improvement"
+    else:
+        return "Poor"
 
 @app.route("/ragas_detailed", methods=["GET"])
 def ragas_detailed():
