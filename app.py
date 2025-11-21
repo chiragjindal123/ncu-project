@@ -63,8 +63,7 @@ def chat():
     if use_structure:
         try:
             kg = KnowledgeGraph()
-            search_terms = user_input.lower().split()
-            structured_context = kg.get_concept_context(search_terms)
+            structured_context = kg.get_concept_context(user_input)
             kg.close()
             print(f"Graph context found: {len(structured_context)} characters")
         except Exception as e:
@@ -99,14 +98,18 @@ def chat():
     # Combine contexts
     final_prompt = f"""
     {system_instruction}
-    
-    Knowledge Graph Context:
+
+    === CONTEXT BEGINS ===
+
+    [STRUCTURED KNOWLEDGE GRAPH]
     {structured_context}
-    
-    RAG Context:
+
+    [TEXT DOCUMENT EXCERPTS]
     {rag_context}
-    
-    Task: {task_prompt}
+
+    === CONTEXT ENDS ===
+
+    User Question: {task_prompt}
     """
     
     # Limit prompt size

@@ -1,0 +1,45 @@
+Reinforcement Learning Fundamentals
+
+Reinforcement Learning (RL) is a machine learning paradigm where an agent learns to make decisions by interacting with an environment. The agent receives rewards or penalties for its actions and learns to maximize cumulative rewards over time.
+
+Key Components:
+- Agent: The decision-making entity
+- Environment: The world in which the agent operates
+- State: Current situation of the agent
+- Action: Choices available to the agent
+- Reward: Feedback signal from the environment
+- Policy: Strategy that defines the agent's behavior
+
+Q-Learning Algorithm:
+Q-learning is a model-free reinforcement learning algorithm that learns the quality of actions. It uses a Q-table to store the expected future rewards for each state-action pair. The Q-value is updated using the Bellman equation:
+
+Q(s,a) = Q(s,a) + α[r + γ max Q(s',a') - Q(s,a)]
+
+Where:
+- α is the learning rate
+- γ is the discount factor
+- r is the immediate reward
+- s' is the next state
+
+Applications:
+- Game playing (Chess, Go, Atari games)
+- Robotics and autonomous systems
+- Trading and finance
+- Resource allocation
+- Traffic optimization
+
+Prerequisites:
+- Basic probability and statistics
+- Linear algebra
+- Python programming
+- Understanding of machine learning concepts
+
+Taxi Environment Problem:
+The Taxi environment is a classic reinforcement learning benchmark problem. In this grid world, a taxi agent must:
+- Navigate a 5x5 grid world
+- Pick up passengers from designated locations (R, G, B, Y)
+- Drop off passengers at their desired destinations
+- Avoid illegal moves (like dropping off at wrong locations)
+- Maximize rewards while minimizing penalties
+
+The state space includes taxi location, passenger location, and destination. Actions include move North/South/East/West, pickup, and dropoff. This environment tests an RL agent's ability to learn complex sequential decision making.

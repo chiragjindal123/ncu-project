@@ -91,8 +91,7 @@ class RAGASEvaluator:
         if use_structure:
             try:
                 kg = KnowledgeGraph()
-                search_terms = question.lower().split()
-                structured_context = kg.get_concept_context(search_terms)
+                structured_context = kg.get_concept_context(question)
                 kg.close()
             except Exception as e:
                 print(f"Knowledge graph query failed: {e}")
