@@ -35,7 +35,7 @@ uv venv --python 3.10.11
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/chiragjindal123/ncu-ml-project.git
+git clone https://github.com/chiragjindal123/ncu-project.git
 cd ai-teaching-assistant
 ```
 
