@@ -1,5 +1,6 @@
 import psycopg2
 import numpy as np
+import os
 from langchain_community.embeddings import InfinityEmbeddings
 
 def get_connection():
@@ -11,7 +12,10 @@ def get_connection():
         port="5432"
     )
 
-dense_model = InfinityEmbeddings(model="", infinity_api_url="http://localhost:8080")
+# Initialize the embedding model
+INFINITY_API_URL=os.getenv("INFINITY_API_URL", "http://localhost:8080")
+
+dense_model = InfinityEmbeddings(model="", infinity_api_url=INFINITY_API_URL)
 
 def get_embedding(text):
     try:
