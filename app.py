@@ -26,6 +26,57 @@ app = Flask(__name__)
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_URL = os.getenv("GEMINI_URL")
 
+# PostgreSQL (pgvector)
+POSTGRES_HOST=os.getenv("POSTGRES_HOST")
+POSTGRES_PORT=os.getenv("POSTGRES_PORT")
+POSTGRES_USER=os.getenv("POSTGRES_USER")
+POSTGRES_PASSWORD=os.getenv("POSTGRES_PASSWORD")
+POSTGRES_DB=os.getenv("POSTGRES_DB")
+
+# Initialize DB connection
+def get_connection():
+    conn = psycopg2.connect(
+        host=POSTGRES_HOST,
+        port=POSTGRES_PORT,
+        user=POSTGRES_USER,
+        password=POSTGRES_PASSWORD,
+        dbname=POSTGRES_DB
+    )
+    return conn
+
+def ensure_tables():
+    """Create required tables and indexes for pgvector RAG functionality"""
+    ddl = """
+    CREATE EXTENSION IF NOT EXISTS vector;
+
+    CREATE TABLE IF NOT EXISTS documents (
+        id SERIAL PRIMARY KEY,
+        content TEXT,
+        embedding VECTOR(768)
+    );
+
+    CREATE TABLE IF NOT EXISTS messages (
+        id SERIAL PRIMARY KEY,
+        role VARCHAR(10),
+        content TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS documents_embedding_idx
+      ON documents USING ivfflat (embedding vector_cosine_ops)
+      WITH (lists = 100);
+    """
+    
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute(ddl)
+        conn.commit()
+        conn.close()
+        print("✅ Database tables and indexes created successfully")
+    except Exception as e:
+        print(f"❌ Database setup failed: {e}")
+
 # --- ROUTES ---
 @app.route("/")
 def index():
@@ -558,4 +609,6 @@ def ragas_detailed():
 
 
 if __name__ == "__main__":
+    # Initialize database tables before starting the app
+    ensure_tables()
     app.run(debug=True)
