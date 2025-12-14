@@ -1,260 +1,666 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <title>TA AI Chat Assistant</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <style>
-    body { 
-      font-family: 'Segoe UI', Arial, sans-serif; 
-      background: #f4f6fb; 
-      margin: 0; 
-      padding: 0;
-    }
-    .container {
-      position: relative;
-      z-index: 1;
-      max-width: 700px;
-      margin: 40px auto;
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-      padding: 24px 24px 16px 24px;
-    }
-    h2 {
-      text-align: center;
-      color: #2d3a4b;
-      margin-bottom: 8px;
-    }
-    .subtitle {
-      text-align: center;
-      color: #6c7a89;
-      font-size: 1rem;
-      margin-bottom: 18px;
-    }
-    #chatbox {
-      border: 1px solid #e0e6ed;
-      background: #f9fafc;
-      border-radius: 8px;
-      padding: 12px;
-      height: 350px;
-      font-size: 1.1rem;
-      overflow-y: auto;
-      margin-bottom: 16px;
-      box-sizing: border-box;
-    }
-    .msg {
-      display: flex;
-      align-items: flex-end;
-      margin: 10px 0;
-    }
-    .msg.user {
-      flex-direction: row-reverse;
-    }
-    .msg .avatar {
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      margin: 0 8px;
-      background: #dbeafe;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: bold;
-      font-size: 1.1em;
-      color: #2563eb;
-    }
-    .msg.user .avatar {
-      background: #fcd34d;
-      color: #b45309;
-    }
-    .bubble {
-      max-width: 70%;
-      padding: 10px 14px;
-      border-radius: 16px;
-      font-size: 1rem;
-      line-height: 1.4;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.03);
-    }
-    .msg.user .bubble {
-      background: #fef9c3;
-      color: #92400e;
-      border-bottom-right-radius: 4px;
-      border-bottom-left-radius: 16px;
-      border-top-right-radius: 16px;
-      border-top-left-radius: 16px;
-    }
-    .msg.ai .bubble {
-      background: #e0e7ff;
-      color: #1e293b;
-      border-bottom-left-radius: 4px;
-      border-bottom-right-radius: 16px;
-      border-top-right-radius: 16px;
-      border-top-left-radius: 16px;
-    }
-    .input-row {
-      display: flex;
-      gap: 8px;
-      margin-top: 8px;
-    }
-    #prompt {
-      flex: 1;
-      padding: 10px;
-      border-radius: 8px;
-      border: 1px solid #cbd5e1;
-      font-size: 1rem;
-      outline: none;
-      transition: border 0.2s;
-    }
-    #prompt:focus {
-      border: 1.5px solid #6366f1;
-    }
-    button {
-      background: #6366f1;
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      padding: 0 18px;
-      font-size: 1rem;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-    button:hover {
-      background: #4f46e5;
-    }
-    .model-select {
-      text-align: center;
-      margin-bottom: 10px;
-    }
-    .model-select label {
-      margin: 0 10px;
-      font-size: 1rem;
-      color: #475569;
-    }
-  </style>
-</head>
-<body>
-  <div id="particles-js" style="position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:0;"></div>
-  <div class="container">
-    <h2>TA AI</h2>
-    <div class="subtitle">Your Teaching Assistant Chatbot</div>
-    <div class="model-select">
-      <label><input type="radio" name="model" value="gemini" checked> Gemini</label>
-      <label><input type="radio" name="model" value="ollama"> Ollama</label>
+  <head>
+    <title>TA AI Chat Assistant</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      body {
+        font-family: "Segoe UI", Arial, sans-serif;
+        background: #f4f6fb;
+        margin: 0;
+        padding: 0;
+      }
+      .container {
+        position: relative;
+        z-index: 1;
+        max-width: 700px;
+        margin: 40px auto;
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+        padding: 24px 24px 16px 24px;
+      }
+      h2 {
+        text-align: center;
+        color: #2d3a4b;
+        margin-bottom: 8px;
+      }
+      .subtitle {
+        text-align: center;
+        color: #6c7a89;
+        font-size: 1rem;
+        margin-bottom: 18px;
+      }
+      #chatbox {
+        border: 1px solid #e0e6ed;
+        background: #f9fafc;
+        border-radius: 8px;
+        padding: 12px;
+        height: 350px;
+        font-size: 1.1rem;
+        overflow-y: auto;
+        margin-bottom: 16px;
+        box-sizing: border-box;
+      }
+      .msg {
+        display: flex;
+        align-items: flex-end;
+        margin: 10px 0;
+      }
+      .msg.user {
+        flex-direction: row-reverse;
+      }
+      .msg .avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        margin: 0 8px;
+        background: #dbeafe;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 1.1em;
+        color: #2563eb;
+      }
+      .msg.user .avatar {
+        background: #fcd34d;
+        color: #b45309;
+      }
+      .bubble {
+        max-width: 70%;
+        padding: 10px 14px;
+        border-radius: 16px;
+        font-size: 1rem;
+        line-height: 1.4;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+      }
+      .msg.user .bubble {
+        background: #fef9c3;
+        color: #92400e;
+        border-bottom-right-radius: 4px;
+        border-bottom-left-radius: 16px;
+        border-top-right-radius: 16px;
+        border-top-left-radius: 16px;
+      }
+      .msg.ai .bubble {
+        background: #e0e7ff;
+        color: #1e293b;
+        border-bottom-left-radius: 4px;
+        border-bottom-right-radius: 16px;
+        border-top-right-radius: 16px;
+        border-top-left-radius: 16px;
+      }
+      .input-row {
+        display: flex;
+        gap: 8px;
+        margin-top: 8px;
+      }
+      #prompt {
+        flex: 1;
+        padding: 10px;
+        border-radius: 8px;
+        border: 1px solid #cbd5e1;
+        font-size: 1rem;
+        outline: none;
+        transition: border 0.2s;
+      }
+      #prompt:focus {
+        border: 1.5px solid #6366f1;
+      }
+      button {
+        background: #6366f1;
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        padding: 0 18px;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+      button:hover {
+        background: #4f46e5;
+      }
+      .model-select {
+        text-align: center;
+        margin-bottom: 10px;
+      }
+      .model-select label {
+        margin: 0 10px;
+        font-size: 1rem;
+        color: #475569;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="particles-js"
+      style="
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: 0;
+      "
+    ></div>
+    <div class="container">
+      <h2>TA AI</h2>
+      <div class="subtitle">Your Teaching Assistant Chatbot</div>
+      <div class="model-select">
+        <label
+          ><input type="radio" name="model" value="gemini" checked />
+          Gemini</label
+        >
+        <label><input type="radio" name="model" value="ollama" /> Ollama</label>
+      </div>
+      <div style="text-align: center; margin-bottom: 10px">
+        <label>
+          <input type="checkbox" id="rag-toggle" checked />
+          Use RAG (Retrieval Augmented Generation)
+        </label>
+      </div>
+      <div style="text-align: center; margin-bottom: 10px">
+        <label>
+          <input type="checkbox" id="structure-toggle" checked />
+          Use Structured Knowledge Model
+        </label>
+      </div>
+      <form id="upload-form" style="text-align: center; margin-bottom: 10px">
+        <input type="file" id="file-input" />
+        <button type="submit">Upload File</button>
+      </form>
+      <div
+        id="ragas-section"
+        style="
+          margin: 20px 0;
+          padding: 15px;
+          border: 1px solid #ddd;
+          border-radius: 8px;
+        "
+      >
+        <h3>📊 RAGAS Evaluation</h3>
+        <p>
+          Evaluate the AI Teaching Assistant using RAGAS (Retrieval Augmented
+          Generation Assessment) metrics.
+        </p>
+
+        <button
+          onclick="runRAGASEvaluation()"
+          style="
+            padding: 10px 20px;
+            background: #059669;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+          "
+        >
+          🧪 Run RAGAS Evaluation
+        </button>
+
+        <button
+          onclick="showRAGASDetails()"
+          style="
+            padding: 10px 20px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+          "
+        >
+          📋 View Metrics Info
+        </button>
+
+        <div id="ragas-results" style="margin-top: 15px"></div>
+      </div>
+      <div id="chatbox"></div>
+      <form class="input-row" onsubmit="sendMessage(); return false;">
+        <input
+          type="text"
+          id="prompt"
+          placeholder="Type your question..."
+          autocomplete="off"
+        />
+        <button type="submit">Send</button>
+      </form>
     </div>
-    <div style="text-align:center; margin-bottom:10px;">
-    <label>
-        <input type="checkbox" id="rag-toggle" checked>
-        Use RAG (Retrieval Augmented Generation)
-    </label>
-    </div>
-    <form id="upload-form" style="text-align:center; margin-bottom:10px;">
-    <input type="file" id="file-input" />
-    <button type="submit">Upload File</button>
-    </form>
-    <div id="chatbox"></div>
-    <form class="input-row" onsubmit="sendMessage(); return false;">
-      <input type="text" id="prompt" placeholder="Type your question..." autocomplete="off" />
-      <button type="submit">Send</button>
-    </form>
-  </div>
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
-  <script>
-    particlesJS("particles-js", {
-      "particles": {
-        "number": { "value": 60 },
-        "color": { "value": "#6366f1" },
-        "shape": { "type": "circle" },
-        "opacity": { "value": 0.3 },
-        "size": { "value": 3 },
-        "line_linked": { "enable": true, "distance": 150, "color": "#6366f1", "opacity": 0.2, "width": 1 },
-        "move": { "enable": true, "speed": 2 }
-      },
-      "interactivity": {
-        "detect_on": "canvas",
-        "events": { "onhover": { "enable": true, "mode": "repulse" } }
-      },
-      "retina_detect": true
-    });
-    
-    function escapeHTML(str) {
-      return str.replace(/[&<>"']/g, function(m) {
-        return ({
-          '&': '&amp;',
-          '<': '&lt;',
-          '>': '&gt;',
-          '"': '&quot;',
-          "'": '&#39;'
-        })[m];
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
+    <script>
+      particlesJS("particles-js", {
+        particles: {
+          number: { value: 60 },
+          color: { value: "#6366f1" },
+          shape: { type: "circle" },
+          opacity: { value: 0.3 },
+          size: { value: 3 },
+          line_linked: {
+            enable: true,
+            distance: 150,
+            color: "#6366f1",
+            opacity: 0.2,
+            width: 1,
+          },
+          move: { enable: true, speed: 2 },
+        },
+        interactivity: {
+          detect_on: "canvas",
+          events: { onhover: { enable: true, mode: "repulse" } },
+        },
+        retina_detect: true,
       });
-    }
 
-    async function sendMessage() {
-      const inputElem = document.getElementById("prompt");
-      const input = inputElem.value.trim();
-      if (!input) return;
-      const model = document.querySelector('input[name="model"]:checked').value;
-      const useRag = document.getElementById("rag-toggle").checked; 
-      const chatbox = document.getElementById("chatbox");
+      function escapeHTML(str) {
+        return str.replace(/[&<>"']/g, function (m) {
+          return {
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#39;",
+          }[m];
+        });
+      }
 
-      // User message
-      chatbox.innerHTML += `
+      // Add this function outside sendMessage()
+      async function submitQuiz(buttonElement) {
+        const aiMsgElem = buttonElement.closest(".msg.ai");
+        if (!aiMsgElem) return;
+
+        // Get stored quiz data
+        const quizData = JSON.parse(aiMsgElem.dataset.quizData);
+
+        // Collect answers
+        let answers = [];
+        quizData.forEach((_, idx) => {
+          const selected = aiMsgElem.querySelector(
+            `input[name="q${idx}"]:checked`
+          );
+          answers.push(selected ? selected.value : null);
+        });
+
+        try {
+          // Send answers for scoring
+          const scoreRes = await fetch("/score_quiz", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ quiz: quizData, answers: answers }),
+          });
+
+          const scoreData = await scoreRes.json();
+
+          // Show results
+          const resultsDiv = aiMsgElem.querySelector("#quiz-results");
+          let resultHtml = `
+          <div style="margin-top:24px; padding-top:16px; border-top:1px solid #e5e7eb">
+            <div style="font-size:1.1em; font-weight:bold; margin-bottom:16px">
+              Your Score: ${scoreData.score} / ${quizData.length}
+            </div>
+        `;
+
+          // Show correct answers with formatting
+          quizData.forEach((q, idx) => {
+            const userAnswer = answers[idx];
+            const isCorrect = userAnswer === q.answer;
+
+            resultHtml += `
+            <div style="margin-bottom:12px">
+              <div style="font-weight:bold">Q${idx + 1}:</div>
+              <div style="margin-left:16px">
+                <div>Your answer: <span style="color:${
+                  isCorrect ? "#059669" : "#dc2626"
+                }">${userAnswer || "Not answered"}</span></div>
+                <div>Correct answer: <span style="color:#2563eb">${
+                  q.answer
+                }</span></div>
+              </div>
+            </div>
+          `;
+          });
+
+          resultHtml += "</div>";
+          resultsDiv.innerHTML = resultHtml;
+
+          // Disable the form
+          aiMsgElem.querySelectorAll("input, button").forEach((el) => {
+            el.disabled = true;
+          });
+        } catch (error) {
+          console.error("Error submitting quiz:", error);
+          alert("Failed to submit quiz. Please try again.");
+        }
+      }
+
+      async function sendMessage() {
+        const inputElem = document.getElementById("prompt");
+        const input = inputElem.value.trim();
+        if (!input) return;
+        const model = document.querySelector(
+          'input[name="model"]:checked'
+        ).value;
+        const useRag = document.getElementById("rag-toggle").checked;
+        const useStructure =
+          document.getElementById("structure-toggle").checked;
+        const chatbox = document.getElementById("chatbox");
+
+        // User message
+        chatbox.innerHTML += `
         <div class="msg user">
           <div class="avatar" title="You">U</div>
           <div class="bubble">${escapeHTML(input)}</div>
         </div>
       `;
 
-      inputElem.value = "";
-      chatbox.scrollTop = chatbox.scrollHeight;
+        inputElem.value = "";
+        chatbox.scrollTop = chatbox.scrollHeight;
 
-      // AI typing indicator
-      const aiMsgId = "ai-msg-" + Date.now();
-      chatbox.innerHTML += `
+        // AI typing indicator
+        const aiMsgId = "ai-msg-" + Date.now();
+        chatbox.innerHTML += `
         <div class="msg ai" id="${aiMsgId}">
           <div class="avatar" title="TA">TA</div>
           <div class="bubble"><em>Typing...</em></div>
         </div>
       `;
-      chatbox.scrollTop = chatbox.scrollHeight;
+        chatbox.scrollTop = chatbox.scrollHeight;
 
-      let res = await fetch("/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: input, model: model, use_rag: useRag })
-      });
-
-      let data = await res.json();
-      const aiMsgElem = document.getElementById(aiMsgId);
-      if (aiMsgElem) {
-        // Render markdown as HTML
-        aiMsgElem.querySelector('.bubble').innerHTML = marked.parse(data.reply);
-      }
-      chatbox.scrollTop = chatbox.scrollHeight;
-    }
-
-    document.getElementById("upload-form").addEventListener("submit", async function(e) {
-        e.preventDefault();
-        const fileInput = document.getElementById("file-input");
-        if (!fileInput.files.length) return;
-        const formData = new FormData();
-        formData.append("file", fileInput.files[0]);
-        const res = await fetch("/upload", {
-        method: "POST",
-        body: formData
+        let res = await fetch("/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: input,
+            model: model,
+            use_rag: useRag,
+            use_structure: useStructure,
+          }),
         });
-        const data = await res.json();
-        alert(data.message);
-        fileInput.value = "";
-    });
 
-    // Optional: Enter key submits
-    document.getElementById("prompt").addEventListener("keydown", function(e) {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        sendMessage();
+        let data = await res.json();
+        const aiMsgElem = document.getElementById(aiMsgId);
+        if (aiMsgElem) {
+          if (data.quiz) {
+            // Store quiz data in a variable accessible to the submit handler
+            aiMsgElem.dataset.quizData = JSON.stringify(data.quiz);
+
+            // Render quiz form
+            let quizHtml = '<div class="quiz-container">';
+            quizHtml +=
+              '<form id="quiz-form" class="quiz-form" onsubmit="return false;">';
+
+            data.quiz.forEach((q, idx) => {
+              quizHtml += `
+              <div class="question" style="margin-bottom:20px;">
+                <p style="font-weight:bold">Q${idx + 1}: ${escapeHTML(
+                q.question
+              )}</p>
+                <div class="options" style="margin-left:20px">
+            `;
+
+              q.options.forEach((opt) => {
+                quizHtml += `
+                <div style="margin:8px 0">
+                  <label style="display:block">
+                    <input type="radio" name="q${idx}" value="${escapeHTML(
+                  opt
+                )}">
+                    <span style="margin-left:8px">${escapeHTML(opt)}</span>
+                  </label>
+                </div>
+              `;
+              });
+
+              quizHtml += `
+                </div>
+              </div>
+            `;
+            });
+
+            quizHtml += `
+            <button type="button" onclick="submitQuiz(this)" style="margin-top:16px">Submit Quiz</button>
+            </form>
+            <div id="quiz-results"></div>
+          </div>`;
+
+            aiMsgElem.querySelector(".bubble").innerHTML = quizHtml;
+          } else {
+            // Render normal message
+            aiMsgElem.querySelector(".bubble").innerHTML = marked.parse(
+              data.reply || ""
+            );
+          }
+        }
+        chatbox.scrollTop = chatbox.scrollHeight;
       }
-    });
-  </script>
-</body>
+
+      function runRAGASEvaluation() {
+        const resultsDiv = document.getElementById("ragas-results");
+        resultsDiv.innerHTML =
+          '<div style="padding: 10px; background: #fef3c7; border-radius: 4px;">🔄 Running RAGAS evaluation... This may take a few minutes.</div>';
+
+        fetch("/ragas_evaluation", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            if (data.error) {
+              resultsDiv.innerHTML = `<div style="padding: 10px; background: #fecaca; border-radius: 4px;">❌ Error: ${data.error}</div>`;
+            } else {
+              displayRAGASResults(data);
+            }
+          })
+          .catch((error) => {
+            resultsDiv.innerHTML = `<div style="padding: 10px; background: #fecaca; border-radius: 4px;">❌ Network Error: ${error}</div>`;
+          });
+      }
+
+      function displayRAGASResults(data) {
+        const resultsDiv = document.getElementById("ragas-results");
+
+        console.log("Received RAGAS data:", data);
+        console.log("Scores object:", data.ragas_scores);
+
+        const scores = data.ragas_scores || {};
+
+        if (!scores || Object.keys(scores).length === 0) {
+          resultsDiv.innerHTML = `
+            <div style="padding: 10px; background: #fecaca; border-radius: 4px;">
+                ❌ Error: No RAGAS scores found in response. 
+                <details>
+                    <summary>Debug Info</summary>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                </details>
+            </div>
+        `;
+          return;
+        }
+
+        const getScore = (metric, fallback = 0) => {
+          const value = scores[metric];
+          return value !== undefined && value !== null ? value : fallback;
+        };
+
+        resultsDiv.innerHTML = `
+        <div style="background: #f0fdf4; padding: 15px; border-radius: 6px; margin-bottom: 15px;">
+            <h4>🎯 Overall RAGAS Score: ${(data.overall_score * 100).toFixed(
+              1
+            )}% - ${data.performance_rating}</h4>
+            <p>Evaluated ${data.total_questions} questions on ${
+          data.evaluation_timestamp.split("T")[0]
+        } (${data.evaluation_type} Evaluation)</p>
+            <div style="margin-top: 8px; font-size: 0.9em; color: #6b7280;">
+                📊 Core Metrics Average: ${(
+                  data.core_metrics_score * 100
+                ).toFixed(1)}% | 
+                🔤 Surface Metrics Average: ${(
+                  data.surface_metrics_score * 100
+                ).toFixed(1)}%
+            </div>
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+            <h4 style="margin-bottom: 10px; color: #1f2937;">📊 Core RAGAS Metrics (RAG Quality Focus)</h4>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px;">
+                <div style="background: #eff6ff; padding: 10px; border-radius: 4px;">
+                    <h5 style="margin: 0 0 5px 0;">📖 Faithfulness</h5>
+                    <div style="font-size: 20px; font-weight: bold;">${(
+                      getScore("faithfulness") * 100
+                    ).toFixed(1)}%</div>
+                    <small>Factual consistency</small>
+                </div>
+                
+                <div style="background: #f0f9ff; padding: 10px; border-radius: 4px;">
+                    <h5 style="margin: 0 0 5px 0;">🎯 Answer Relevancy</h5>
+                    <div style="font-size: 20px; font-weight: bold;">${(
+                      getScore("answer_relevancy") * 100
+                    ).toFixed(1)}%</div>
+                    <small>Question relevance</small>
+                </div>
+                
+                <div style="background: #fefce8; padding: 10px; border-radius: 4px;">
+                    <h5 style="margin: 0 0 5px 0;">🔍 Context Precision</h5>
+                    <div style="font-size: 20px; font-weight: bold;">${(
+                      getScore("context_precision") * 100
+                    ).toFixed(1)}%</div>
+                    <small>Context relevance</small>
+                </div>
+                
+                <div style="background: #f0fdf4; padding: 10px; border-radius: 4px;">
+                    <h5 style="margin: 0 0 5px 0;">📚 Context Recall</h5>
+                    <div style="font-size: 20px; font-weight: bold;">${(
+                      getScore("context_recall") * 100
+                    ).toFixed(1)}%</div>
+                    <small>Context completeness</small>
+                </div>
+                
+                <div style="background: #fdf2f8; padding: 10px; border-radius: 4px;">
+                    <h5 style="margin: 0 0 5px 0;">📝 Answer Similarity</h5>
+                    <div style="font-size: 20px; font-weight: bold;">${(
+                      getScore("answer_similarity") * 100
+                    ).toFixed(1)}%</div>
+                    <small>Semantic similarity</small>
+                </div>
+                
+                <div style="background: #f3f4f6; padding: 10px; border-radius: 4px;">
+                    <h5 style="margin: 0 0 5px 0;">✅ Answer Correctness</h5>
+                    <div style="font-size: 20px; font-weight: bold;">${(
+                      getScore("answer_correctness") * 100
+                    ).toFixed(1)}%</div>
+                    <small>Overall correctness</small>
+                </div>
+            </div>
+        </div>
+        
+        <div style="margin-bottom: 15px;">
+            <h4 style="margin-bottom: 10px; color: #1f2937;">🔤 Surface Metrics (Text Similarity Only)</h4>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px;">
+                <div style="background: #ecfdf5; padding: 10px; border-radius: 4px;">
+                    <h5 style="margin: 0 0 5px 0;">📊 ROUGE-1</h5>
+                    <div style="font-size: 18px; font-weight: bold;">${(
+                      getScore("rouge1") * 100
+                    ).toFixed(1)}%</div>
+                    <small>Unigram overlap</small>
+                </div>
+                
+                <div style="background: #f0fdf4; padding: 10px; border-radius: 4px;">
+                    <h5 style="margin: 0 0 5px 0;">📊 ROUGE-2</h5>
+                    <div style="font-size: 18px; font-weight: bold;">${(
+                      getScore("rouge2") * 100
+                    ).toFixed(1)}%</div>
+                    <small>Bigram overlap</small>
+                </div>
+                
+                <div style="background: #f7fee7; padding: 10px; border-radius: 4px;">
+                    <h5 style="margin: 0 0 5px 0;">📊 ROUGE-L</h5>
+                    <div style="font-size: 18px; font-weight: bold;">${(
+                      getScore("rougeL") * 100
+                    ).toFixed(1)}%</div>
+                    <small>Longest sequence</small>
+                </div>
+                
+                <div style="background: #fef7ff; padding: 10px; border-radius: 4px;">
+                    <h5 style="margin: 0 0 5px 0;">🎯 BLEU Score</h5>
+                    <div style="font-size: 18px; font-weight: bold;">${(
+                      getScore("bleu") * 100
+                    ).toFixed(1)}%</div>
+                    <small>Precision-based</small>
+                </div>
+            </div>
+        </div>
+        
+        <div style="background: #f8fafc; padding: 12px; border-radius: 4px; border-left: 4px solid #6366f1;">
+            <small><strong>Note:</strong> Overall score is based on core metrics only, which focus on RAG quality and answer relevance. Surface metrics measure text-level similarity with ground truth answers.</small>
+        </div>
+        
+        <div style="margin-top: 10px;">
+            <details style="background: #f1f5f9; padding: 10px; border-radius: 4px;">
+                <summary style="cursor: pointer; font-weight: bold;">🔍 Debug: View Raw Data</summary>
+                <pre style="background: white; padding: 10px; border-radius: 4px; margin-top: 5px; overflow-x: auto; font-size: 12px;">${JSON.stringify(
+                  data,
+                  null,
+                  2
+                )}</pre>
+            </details>
+        </div>
+    `;
+      }
+
+      function showRAGASDetails() {
+        fetch("/ragas_detailed")
+          .then((response) => response.json())
+          .then((data) => {
+            let detailsHtml =
+              '<div style="background: #f9fafb; padding: 15px; border-radius: 6px; margin-top: 10px;"><h4>📊 RAGAS Metrics Explained</h4>';
+
+            for (const [metric, info] of Object.entries(data)) {
+              detailsHtml += `
+                          <div style="margin: 10px 0; padding: 8px; background: white; border-radius: 4px;">
+                              <strong>${metric
+                                .replace("_", " ")
+                                .toUpperCase()}</strong><br>
+                              ${info.description}<br>
+                              <small><em>Range: ${info.range} - ${
+                info.interpretation
+              }</em></small>
+                          </div>
+                      `;
+            }
+
+            detailsHtml += "</div>";
+            document.getElementById("ragas-results").innerHTML = detailsHtml;
+          });
+      }
+
+      document
+        .getElementById("upload-form")
+        .addEventListener("submit", async function (e) {
+          e.preventDefault();
+          const fileInput = document.getElementById("file-input");
+          if (!fileInput.files.length) return;
+          const formData = new FormData();
+          formData.append("file", fileInput.files[0]);
+          const res = await fetch("/upload", {
+            method: "POST",
+            body: formData,
+          });
+          const data = await res.json();
+          alert(data.message);
+          fileInput.value = "";
+        });
+
+      // Optional: Enter key submits
+      document
+        .getElementById("prompt")
+        .addEventListener("keydown", function (e) {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            sendMessage();
+          }
+        });
+    </script>
+  </body>
 </html>
