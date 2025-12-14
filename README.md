@@ -2,6 +2,9 @@
 
 An intelligent AI Teaching Assistant that combines Neo4j knowledge graphs with Retrieval-Augmented Generation (RAG) to provide personalized learning support through natural language interaction.
 
+Github: https://github.com/chiragjindal123/ncu-ml-project
+Demo Video : https://youtu.be/YunaHJhX82E
+
 ## 🚀 Features
 
 - **Intelligent Conversational AI**: Natural language interaction with context-aware responses
@@ -20,6 +23,14 @@ An intelligent AI Teaching Assistant that combines Neo4j knowledge graphs with R
 - Gemini API Key
 
 ## 🛠️ Installation
+
+### Using uv
+
+You may use `uv` package manager to set different version of python for venv. As this project use python 3.10.11, you can run 
+
+```
+uv venv --python 3.10.11
+```
 
 ### 1. Clone the Repository
 ```bash
@@ -67,11 +78,24 @@ docker run --name infinity_embeddings \
 ```
 
 #### Neo4j Database Setup
+You can use Neo4j Desktop or Docker.
+
 1. Download and install [Neo4j Desktop](https://neo4j.com/download/)
 2. Create a new project and database
 3. Set password (e.g., "password123")
 4. Start the database
 5. Note the connection URI (default: neo4j://localhost:7687)
+
+Using docker (without persisting data between restart)
+
+```bash
+docker run \
+    --restart always \
+    --publish=7474:7474 --publish=7687:7687 \
+    neo4j:2025.10.1
+```
+
+Then open http://localhost:7474/ (the Neo4j’s Browser interface) in a web browser to set a new password (default neo4j/neo4j at first login).
 
 ### 5. Environment Configuration
 
