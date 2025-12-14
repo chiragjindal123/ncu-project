@@ -2,8 +2,9 @@
 
 An intelligent AI Teaching Assistant that combines Neo4j knowledge graphs with Retrieval-Augmented Generation (RAG) to provide personalized learning support through natural language interaction.
 
-Github: https://github.com/chiragjindal123/ncu-ml-project
-Demo Video : https://youtu.be/YunaHJhX82E
+Github: [https://github.com/chiragjindal123/ncu-project/tree/ragas](https://github.com/chiragjindal123/ncu-project/tree/ragas)
+
+Demo Video : [https://youtu.be/YunaHJhX82E](https://youtu.be/YunaHJhX82E)
 
 ## 🚀 Features
 
